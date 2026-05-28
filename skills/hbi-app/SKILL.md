@@ -174,6 +174,7 @@ hbi app portal --app <app_id> delete --force
 - `show` 输出可直接作为 `apply --file` 的编辑起点。
 - `apply` 走前端同款 portal CRUD 端点，不要用 `app update` 猜测写入位置。
 - 如果 `app show <id>` 里看到了 `portals`，把它当作**只读详情**；真正写回仍然走 `app portal apply`。
+- 从空 portal 起手时，优先参考 `references/payload-contracts.md` 里的最小 skeleton 与 menu 形状约束；不要手写 `imagesList`、自动生成的 `uid`，也不要把 `hide` 之类 runtime 临时菜单当成 authoring 必填字段。
 - file authoring 时优先围绕 `pc` / `mobile`、`menus`、`menuIndex`、`position`、`theme`、`title`、`subTitle`、`logo`、`showLogo`、`showAppPath` 这些稳定字段；不要手写 `hide` 之类 runtime 临时菜单，也不要把 `imagesList` 当成必填 authoring 字段。
 
 ### 5. 多语言配置
@@ -325,6 +326,7 @@ hbi app transfer <app_id> --user <user_id>
 
 ```bash
 hbi app publish <app_id> --folder <folder_id>
+hbi app publish <app_id> --folder <folder_id> --default-view portal
 hbi app unpublish <app_id> --force
 ```
 
@@ -340,6 +342,8 @@ hbi app share refresh <app_id>
 ```
 
 - `publish` / `unpublish` 管的是“上架到发布空间”
+- `publish --default-view` 当前稳定取值是 `dashboard | portal`
+- 不传 `--default-view` 时，CLI 会优先保留现有 `options.publishConfig.defaultView`；如果应用还没有发布配置，则默认回到 `dashboard`
 - `share` 管的是“分享链接本身的开关、密码、HMAC、签名”
 - `share enable` / `disable` / `refresh` 用的是 **app id**
 - `share link` 用的是 **app id**：它会从 app 详情里的 `share` 对象解析当前公开链接；如果应用还没开启公开分享，会直接报错

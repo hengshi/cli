@@ -5,6 +5,16 @@
 - 需要给 `app connection-replace`、`app portal apply`、`app locale update`、`app rule create/update`、`app subscribe create/update` 写 `--file/--value`
 - 需要判断某个 payload 是 array、object，还是“show 输出改完即可回灌”
 
+## 功能点速查
+
+| 用户说法 / 中文术语 | 读哪一节 | 稳定 payload path / shape |
+|---|---|---|
+| 连接替换 / 换连接 / 库表路径映射 | `app connection-replace` | `[].current` / `[].replace` / `[].replaceSchema` |
+| 多语言开关 / 默认语言 / 翻译词条 | `app locale update` | `localeConfig.localesEnabled` / `localeConfig.defaultLocale` / `localeConfig.localesMap` |
+| 门户菜单 / 导航 / 顶部菜单 / 底部菜单 / 标题 / Logo / 门户主题 | `app portal apply` | `pc.*` / `mobile.*` / `menus[]` |
+| 行级权限 / 列级权限 / 规则作用对象 / SIMPLE vs FORMULA | `app rule create/update` | `dataFilters[].filter.where` / `dataFilters[].filter.excludeColumns` / `users` / `organizations` / `orgs` / `tenants` / `options.filterCategory` |
+| 订阅渠道 / 邮件订阅 / Webhook / 企微 / 飞书 / 钉钉 | `app subscribe create/update` | `email` / `webhook` / `wecom` / `feishu` / `dingtalk` |
+
 ## 通用规则
 
 - `connection-replace` 的 payload 是 **array**
@@ -31,6 +41,14 @@
 | `replaceSchema` | 可选路径映射，key/val 都是字符串 |
 
 这条 payload 没有 wrapper；直接传数组。
+
+功能点速查：
+
+| 功能点 / 用户说法 | payload path | 说明 |
+|---|---|---|
+| 当前连接 | `[].current` | 当前环境里被替换掉的 connection id |
+| 替换目标连接 | `[].replace` | 目标环境 connection id |
+| schema / 路径映射 | `[].replaceSchema` | `源路径 -> 目标路径` 的字符串映射 |
 
 ## `app locale update`
 
@@ -88,6 +106,14 @@ localeConfig:
 hbi app locale --app <app_id> show --output yaml
 ```
 
+功能点速查：
+
+| 功能点 / 用户说法 | payload path | 说明 |
+|---|---|---|
+| 启用 / 关闭多语言 | `localeConfig.localesEnabled` | 对应前端多语言总开关 |
+| 默认语言 | `localeConfig.defaultLocale` | 默认展示 locale |
+| 翻译词条 / 文案映射 | `localeConfig.localesMap.<locale>.*` | 具体 key 最稳从 `locale show/export` 导出 |
+
 ## `app portal apply`
 
 `app portal apply` 接受两种形态：
@@ -118,6 +144,19 @@ mobile:
 | `imagesList` | 关联图片 id 列表；CLI 会从 `pc.logo` 与 menu `icon` 自动回填 |
 | `pc` | 桌面门户配置 |
 | `mobile` | 移动门户配置 |
+
+功能点速查：
+
+| 功能点 / 用户说法 | payload path | 说明 |
+|---|---|---|
+| 桌面门户菜单 / 顶部导航 | `pc.menus[]` | 桌面菜单树 |
+| 移动门户菜单 / 底部导航 | `mobile.menus[]` | 移动端菜单树 |
+| 默认高亮菜单 | `pc.menuIndex` / `mobile.menuIndex` | 默认选中的菜单索引 |
+| 主标题 / 副标题 | `pc.title` / `pc.subTitle` | `mobile` 常见只关注主标题 |
+| Logo / 是否显示 Logo | `pc.logo` / `pc.showLogo` | `imagesList` 会从这里自动回填 |
+| 门户主题 | `pc.theme` / `mobile.theme` | 门户整体主题设置 |
+| 仪表盘菜单目标 | `menus[].targetDashboard` | 跳到某个 dashboard |
+| 外链菜单目标 | `menus[].targetUrl` / `menus[].targetUrlName` / `menus[].openAs` | 跳外部链接 |
 
 ### `pc` / `mobile` 的高频字段
 
@@ -175,6 +214,27 @@ CLI 的 save-side normalize 还会自动补：
 - 默认 `title` / `subTitle`
 - dashboard/link/group 菜单的 `showLabel` / `showIcon` / `openAs` / header flags
 
+### 空 portal 起手时的 authoring 建议
+
+推荐 workflow：
+
+1. 先跑 `hbi app portal --app <app_id> show --output yaml`
+2. 如果返回 `null` / 没有 portal，就从上面的最小示例起手
+3. 只改稳定 authoring 字段，再 `apply --file ...`
+
+菜单项优先只写 3 种稳定形状之一，不要混搭：
+
+1. dashboard 菜单：`label` + `targetDashboard`
+2. link 菜单：`label` + `targetUrl`（可选 `openAs` / `targetUrlName`）
+3. group 菜单：`label` + `children`
+
+补充规则：
+
+- `children` 嵌套树优先于手写 `pid`；只有要保留既有扁平 uid/pid 结构时才显式写 `pid`
+- `imagesList` 不需要手写；CLI 会从 `pc.logo` 与 menu `icon` 自动回填
+- `uid` 缺失时 CLI 自动生成；除非你要稳定引用既有菜单，否则不要手写
+- `hide: true` 的菜单会在 apply 前被清掉；不要把它当成“保留但暂时隐藏”的 durable authoring 形状
+
 ## `app rule create/update`
 
 `rule create/update` 的 raw payload 是 object。当前稳定的顶层字段是：
@@ -198,6 +258,17 @@ dataFilters:
 options:
   filterCategory: FORMULA
 ```
+
+功能点速查：
+
+| 功能点 / 用户说法 | payload path | 说明 |
+|---|---|---|
+| 规则名称 | `name` | 规则标题 |
+| 行级权限条件 | `dataFilters[].filter.where` | 行规则主体 |
+| 列级隐藏列 | `dataFilters[].filter.excludeColumns` | 列规则主体 |
+| 作用对象（用户/组织/租户） | `users` / `organizations` / `orgs` / `tenants` | 绑定的 principal 列表 |
+| SIMPLE / FORMULA 模式 | `options.filterCategory` | 对应前端条件模式 |
+| 规则类型（行/列） | `type` + `dataFilters[].filter.ruleType` | 顶层和 filter 内都应一致 |
 
 ### 稳定字段
 
@@ -260,6 +331,17 @@ feishu:
 dingtalk:
   enabled: false
 ```
+
+功能点速查：
+
+| 功能点 / 用户说法 | payload path | 说明 |
+|---|---|---|
+| 订阅标题 | `title` | 订阅记录名称 |
+| 邮件订阅 | `email.*` | 收件人、主题、正文、附件等 |
+| Webhook 通知 | `webhook.*` | URL、method、headers、requestBody |
+| 企业微信通知 | `wecom.*` | 群 / 接收对象 / 文案等 |
+| 飞书通知 | `feishu.*` | 群 / 接收对象 / 文案等 |
+| 钉钉通知 | `dingtalk.*` | 群 / 接收对象 / 文案等 |
 
 ### 顶层 channel
 

@@ -297,6 +297,8 @@ hbi element image --help
 hbi element text --help
 ```
 
+- 更新现有图表时，优先先跑 `hbi element chart show <chart_id> --dashboard <dashboard_id> --app <app_id> --as-spec > chart.yaml`，编辑后再 `hbi element chart update <chart_id> --dashboard <dashboard_id> --app <app_id> --file chart.yaml`；不要把 `chart create` 的内联 flags 直接脑补到 `chart update`。
+
 ## 实战建议
 
 1. 先确认应用 ID。

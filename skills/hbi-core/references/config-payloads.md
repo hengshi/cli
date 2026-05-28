@@ -19,16 +19,24 @@
 
 ## 快速矩阵
 
-| 命令 | payload 类型 | 当前 source of truth |
-|---|---|---|
-| `auth config update <provider>` | object | `auth methods --output json` 的 `formItems` + `auth config get <provider>` |
-| `auth verify ldap` | object | `auth config get ldap` / 现网 LDAP 配置对象 |
-| `auth generate jwt-key` | object | `jwt-param generate-key` request body |
-| `preferences <module> update` | object | 对应 `preferences <module> get` |
-| `preferences smtp verify` | object | 对应 `preferences smtp get` |
-| `preferences set-config <key> --value ...` | 任意 JSON/YAML 值 | 原始 escape hatch，没有模块级 schema |
+| 用户功能点 / 中文术语 | 命令 | payload 类型 | 当前 source of truth |
+|---|---|---|---|
+| 认证方式配置 / 登录方式管理 | `auth config update <provider>` | object | `auth methods --output json` 的 `formItems` + `auth config get <provider>` |
+| LDAP 配置校验 | `auth verify ldap` | object | `auth config get ldap` / 现网 LDAP 配置对象 |
+| JWT 参数认证材料 / 签名算法生成参数 | `auth generate jwt-key` | object | `jwt-param generate-key` request body |
+| 模块化系统偏好 / 系统设置模块对象 | `preferences <module> update` | object | 对应 `preferences <module> get` |
+| SMTP 配置校验 | `preferences smtp verify` | object | 对应 `preferences smtp get` |
+| 原始单 key 配置项 / escape hatch | `preferences set-config <key> --value ...` | 任意 JSON/YAML 值 | 原始 escape hatch，没有模块级 schema |
 
 ## `auth config update <provider>`
+
+如果用户说的是这些功能点，通常都属于 provider 配置对象本身：
+
+- LDAP 登录配置
+- OAuth2 / SAML2 / CAS 登录方式配置
+- 企业 IM 单点登录配置
+
+这类说法先映射到 `auth config get/update <provider>` 的**顶层 provider object**，而不是 CLI 自己再包装一层。
 
 支持的 provider 名要用稳定 CLI token：
 
@@ -121,6 +129,16 @@ checkSignAlgorithm: HS256
 - `js`
 - `gis`
 - `open-dwinfo`
+
+常见中文功能点与模块对象对照：
+
+| 用户说法 / 中文术语 | 模块入口 | 实际编辑对象 |
+|---|---|---|
+| 环境变量 / JAVA_HOME / 系统环境 | `preferences environment` | 环境对象本身 |
+| SMTP / 邮件服务器配置 | `preferences smtp` | SMTP 配置对象本身 |
+| 安全设置 | `preferences security` | 安全配置对象本身 |
+| 首页配置 | `preferences home` | 首页配置对象本身 |
+| 皮肤 / 自定义 CSS / 自定义 JS | `preferences skin` / `css` / `js` | 对应模块对象本身 |
 
 ### 结构规则
 

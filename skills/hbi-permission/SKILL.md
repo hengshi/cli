@@ -69,24 +69,29 @@ metadata:
 ### 文件夹权限
 
 ```bash
-hbi permission folder-list --area PERSONAL_AREA --user-id 123 --action read
-hbi permission folder-get <folder_id> --area PERSONAL_AREA
+hbi permission folder-list --area personal-area --user-id 123 --action read
+hbi permission folder-get <folder_id> --area personal-area
 ```
 
-当前源码里 `permission` 的 area 用的是后端风格的大写枚举，例如：
+`permission --area` 当前优先使用和 `search` / `app` 一致的小写连字符值，例如：
+
+- `personal-area`
+- `public-area`
+- `app-mart`
+- `system-portal`
+
+CLI 也兼容后端风格的大写枚举，并会在发送请求前归一化，例如：
 
 - `PERSONAL_AREA`
 - `PUBLIC_AREA`
 - `APP_MART`
 - `SYSTEM_PORTAL`
 
-不是顶层 `search/app` 常用的小写连字符值（如 `personal-area` / `app-mart`）。
-
 ### 应用权限
 
 ```bash
-hbi permission app-list --area PERSONAL_AREA --user-id 123
-hbi permission app-get <app_id> --area PERSONAL_AREA
+hbi permission app-list --area personal-area --user-id 123
+hbi permission app-get <app_id> --area personal-area
 hbi permission app-rules <app_id>
 ```
 
@@ -177,7 +182,7 @@ hbi authorize revoke connection <target_id> --tenant 1
 ## 禁止事项
 
 - 不要把 `permission` 当成写操作命令。
-- 不要把 `PERSONAL_AREA` 和 `personal-area` 这样的 area 值混用。
+- 不要在同一段自动化里混写两种 area 风格；优先统一用小写连字符值。
 - 不要把 `app grant --permission` 写成 `viewer` / `editor` / `administrator`。
 - 不要把 `authorize get --action` 写成角色词；这里只认 `read` / `write` / `admin`。
 - 不要把 `--organization` 和 `--org` 当成同一种主体。

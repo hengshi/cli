@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "2.0.0",
+    [string]$Version = "2.1.0",
     [string]$BaseUrl = "https://download.hengshi.com/cli",
     [string]$InstallDir = "$env:LOCALAPPDATA\Programs\HENGSHI\bin",
     [switch]$WithSkills,

@@ -2,7 +2,7 @@
 
 set -eu
 
-VERSION="${HENGSHI_CLI_VERSION:-2.0.0}"
+VERSION="${HENGSHI_CLI_VERSION:-2.1.0}"
 BASE_URL="${HENGSHI_CLI_BASE_URL:-https://download.hengshi.com/cli}"
 INSTALL_DIR="${INSTALL_DIR:-}"
 DRY_RUN=0

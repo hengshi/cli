@@ -95,12 +95,19 @@ metadata:
 
 ### 推荐认证方式
 
-自动化 / Agent 场景优先环境变量：
+自动化 / Agent 场景优先环境变量，但推荐顺序必须和当前 CLI SPEC 保持一致：
 
 ```bash
-export HBI_API_URL="https://your-everest-instance.com"
-export HBI_TOKEN="<token>"
+export HBI_HOST="https://your-everest-instance.com"
 ```
+
+推荐顺序：
+
+1. `HBI_HOST` + `hbi auth login --device-login`
+2. `HBI_HOST` + `HBI_CLIENT_ID` / `HBI_CLIENT_SECRET`
+3. `HBI_HOST` + `HBI_TOKEN`（仅临时 override，不提供 durable / refresh 保证）
+
+也就是说，`HBI_TOKEN` 不是常规推荐登录方式，更不是 renewable auth 的替代品。
 
 如果还没有 token，再走 `auth login`。`auth login` 会优先读取：
 
@@ -111,8 +118,41 @@ export HBI_TOKEN="<token>"
 人工 / 首次登录：
 
 ```bash
-hbi auth login --client-id <ID> --client-secret <SECRET>
+HBI_HOST=https://preview.hengshi.com hbi auth login --device-login
 ```
+
+自动化 / 已持有 renewable credential：
+
+```bash
+HBI_HOST=https://preview.hengshi.com \
+HBI_CLIENT_ID="$HBI_CLIENT_ID" \
+HBI_CLIENT_SECRET="$HBI_CLIENT_SECRET" \
+hbi auth login
+```
+
+只想临时打一条命令，且明确接受 token 过期风险时，才使用：
+
+```bash
+HBI_HOST=https://preview.hengshi.com HBI_TOKEN="<token>" hbi auth status
+```
+
+### 指定用户视角执行
+
+当 OAuth client 已配置 `sudo` scope 时，可以对任意命令追加全局 `--as-user`（别名 `--sudo`）：
+
+```bash
+hbi app list --area personal-area --root --as-user 1001
+hbi app list --area personal-area --root --as-user loginName:trial_user
+hbi app list --area personal-area --root --sudo email:demo@example.com
+```
+
+规则：
+
+- 裸数字会自动规范化为 `uid:<id>`
+- 显式身份格式支持：`uid:<id>`、`loginName:<login_name>`、`email:<email>`、`mobile:<mobile>`
+- CLI 会把该值作为 query 参数 `sudo=...` 附加到 API 请求
+- 如果当前 OAuth client 没有 `sudo` scope，后端会直接拒绝
+- 多租户 sudo 场景如需看目标租户数据，仍要同时传对应命令自己的 `tenantId` / `tenantCode` 语义，而不是只靠 `--as-user`
 
 如果只想先确认 CLI 会用哪组凭据，不要真的发请求，可以先：
 
@@ -121,6 +161,24 @@ hbi auth login --dry-run
 ```
 
 需要把凭据写入系统钥匙串时再加 `--interactive`。
+
+### 执行与验证入口：wrapper-first
+
+涉及 repo 执行、验证、CI 对齐时，优先使用仓库 `scripts` 目录里的 wrapper，不要每次重猜裸 `cargo` 命令：
+
+```bash
+check-fast
+check-ci
+check-skills
+test-e2e auth::
+```
+
+规则：
+
+1. 日常 gate 优先 `scripts` 目录中的 `check-ci`
+2. 变更 `skills/**` 或 validator 代码时补跑 `scripts` 目录中的 `check-skills`
+3. 真实 auth/runtime 闭环改动补跑最窄的 `scripts` 目录 wrapper `test-e2e auth::...`
+4. 只有在调试 wrapper 本身或 Cargo/runner 问题时，才退回裸命令
 
 ### 系统认证方式管理
 

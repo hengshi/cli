@@ -86,7 +86,7 @@ metadata:
 5. `hbi-permission`
    - 团队授权优先 `authorize get/grant`
    - 只有用户明确说“发布到应用市场”或“生成分享链接”时，才进入 `app publish` / `app share`
-   - 如果要给授权示例，使用稳定形态：`authorize get app <app_id>`、`authorize grant app <app_id> --user USER_ID:ROLE`、`authorize grant app <app_id> --org ORG_ID:ROLE`
+   - 如果要给授权示例，使用稳定形态：`authorize get app <app_id>`、`authorize grant app <app_id> --user USER_ID:ROLE`、`authorize grant app <app_id> --organization ORG_ID:ROLE`
 
 推荐起手命令：
 
