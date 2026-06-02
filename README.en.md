@@ -86,24 +86,45 @@ Auto-detect locally installed agents:
 curl -fsSL https://download.hengshi.com/cli/install.sh | sh -s -- --with-skills
 ```
 
+### Check for updates and run updates
+
+If the current install came from the official installer, the CLI can also check and apply upgrades locally:
+
+```bash
+hbi update --check
+hbi update
+hbi update --with-skills
+hbi update --version 2.1.0
+```
+
+`hbi update --check` is auth-free; it does not require saved credentials or `HBI_TOKEN` / `--token`. If the current install is not updater-managed yet, the command tells you to re-run the official installer once first.
+
 ### Configure & Use
 
 ```bash
 # Configure target instance
-export HBI_API_URL="https://<your-everest-instance>"
+export HBI_HOST="https://<your-hengshi-sense-instance>"
 
-# Authenticate
-hbi auth login --client-id <client_id> --client-secret <client_secret>
+# Authenticate (device login recommended; Sense 6.2.1+)
+hbi auth login --device-login
+
+# Client ID / Secret (secondary; non-interactive or older hosts)
+export HBI_CLIENT_ID="<client_id>"
+export HBI_CLIENT_SECRET="<client_secret>"
+hbi auth login
+
+# Remote CLI / SSH / openclaw: approve in any browser; older hosts fall back to client credentials if set.
 hbi auth status
 
 # Start using the CLI
 hbi app list --area personal-area --root
 ```
 
-For automation, you can provide a token directly:
+For a temporary access-token override, you can inject it directly:
 
 ```bash
 export HBI_TOKEN="<token>"
+hbi --token "<token>" auth status
 ```
 
 ## Agent Skills
@@ -123,8 +144,14 @@ The official installer writes these bundled skills directly into supported agent
 ## Authentication
 
 ```bash
-# Interactive login
-hbi auth login --client-id <client_id> --client-secret <client_secret>
+# Device login (recommended; Sense 6.2.1+)
+HBI_HOST="https://<your-hengshi-sense-instance>" hbi auth login --device-login
+
+# Client ID / Secret (secondary; non-interactive or older hosts)
+HBI_HOST="https://<your-hengshi-sense-instance>" \
+HBI_CLIENT_ID="<client_id>" \
+HBI_CLIENT_SECRET="<client_secret>" \
+hbi auth login
 
 # Check current auth status
 hbi auth status --output json

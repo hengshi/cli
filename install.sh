@@ -144,6 +144,34 @@ install_bundled_skills() {
     done < "$target_file"
 }
 
+write_updater_state() {
+    set -- internal updater write-state \
+        --installer-kind shell \
+        --install-dir "$INSTALL_DIR" \
+        --managed-binary-path "$INSTALL_DIR/hbi"
+
+    if [ "$WITH_SKILLS" -eq 1 ]; then
+        set -- "$@" --with-skills
+        if [ -n "$SKILLS_AGENTS" ]; then
+            set -- "$@" --skills-target-mode explicit
+            for agent_name in $SKILLS_AGENTS; do
+                set -- "$@" --agent "$agent_name"
+            done
+        else
+            set -- "$@" --skills-target-mode auto-detect
+        fi
+
+        if [ -f "$TMP_DIR/skill-targets.txt" ]; then
+            while IFS= read -r target_dir; do
+                [ -n "$target_dir" ] || continue
+                set -- "$@" --resolved-skill-target "$target_dir"
+            done < "$TMP_DIR/skill-targets.txt"
+        fi
+    fi
+
+    "$INSTALL_DIR/hbi" "$@"
+}
+
 while [ $# -gt 0 ]; do
     case "$1" in
         --version)
@@ -313,3 +341,5 @@ esac
 if [ "$WITH_SKILLS" -eq 1 ]; then
     install_bundled_skills "$BUNDLED_SKILLS_DIR" "$SUPPORTED_AGENTS_PATH" "$LEGACY_SKILLS_PATH"
 fi
+
+write_updater_state

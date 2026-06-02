@@ -86,24 +86,46 @@ curl -fsSL https://download.hengshi.com/cli/install.sh | sh -s -- --with-skills 
 curl -fsSL https://download.hengshi.com/cli/install.sh | sh -s -- --with-skills
 ```
 
+### 检查更新与执行更新
+
+如果当前安装来自官方 installer，CLI 也支持直接在本机检查和执行升级：
+
+```bash
+hbi update --check
+hbi update
+hbi update --with-skills
+hbi update --version 2.1.0
+```
+
+`hbi update --check` 不依赖已保存登录态或 `HBI_TOKEN` / `--token`；如果当前安装还不是 updater-managed，命令会提示你先重跑一次官方 installer。
+
 ### 配置并开始使用
 
 ```bash
 # 配置目标实例
-export HBI_API_URL="https://<你的-everest-实例>"
+export HBI_HOST="https://<你的-hengshi-sense-实例>"
 
-# 认证
-hbi auth login --client-id <client_id> --client-secret <client_secret>
+# 认证（推荐 device-login；Sense 6.2.1+）
+hbi auth login --device-login
+
+# Client ID / Secret（次选；用于非交互或更老主机）
+export HBI_CLIENT_ID="<client_id>"
+export HBI_CLIENT_SECRET="<client_secret>"
+hbi auth login
+
+# 远程/SSH/openclaw：Sense 6.2.1+ 支持 device-login（浏览器确认即可）；
+# 更老版本会在提供 client credentials 时自动回退。
 hbi auth status
 
 # 开始使用
 hbi app list --area personal-area --root
 ```
 
-自动化场景也可以直接提供 token：
+如果只是临时覆盖一次访问令牌，也可以直接注入：
 
 ```bash
 export HBI_TOKEN="<token>"
+hbi --token "<token>" auth status
 ```
 
 ## Agent Skills
@@ -123,8 +145,14 @@ HENGSHI CLI 提供官方 skills，让 Agent 在不同环境里复用同一套领
 ## 认证
 
 ```bash
-# 交互式登录
-hbi auth login --client-id <client_id> --client-secret <client_secret>
+# 设备登录（推荐；Sense 6.2.1+）
+HBI_HOST="https://<你的-hengshi-sense-实例>" hbi auth login --device-login
+
+# Client ID / Secret（次选；用于非交互或更老主机）
+HBI_HOST="https://<你的-hengshi-sense-实例>" \
+HBI_CLIENT_ID="<client_id>" \
+HBI_CLIENT_SECRET="<client_secret>" \
+hbi auth login
 
 # 查看当前认证状态
 hbi auth status --output json

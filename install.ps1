@@ -135,6 +135,8 @@ function Install-BundledSkills {
 
         Write-Output "Installed official skills to $TargetPath"
     }
+
+    return $Targets
 }
 
 $AssetArch = Get-AssetArch
@@ -209,8 +211,38 @@ try {
     }
     Write-Output "If needed, add $InstallDir to your PATH."
 
+    $ResolvedSkillTargets = @()
     if ($InstallSkills) {
-        Install-BundledSkills -SkillsRoot $BundledSkillsDir -ManifestPath $SupportedAgentsPath -LegacyPath $LegacySkillsPath -RequestedAgents $Agent
+        $ResolvedSkillTargets = Install-BundledSkills -SkillsRoot $BundledSkillsDir -ManifestPath $SupportedAgentsPath -LegacyPath $LegacySkillsPath -RequestedAgents $Agent
+    }
+
+    $ManagedBinaryPath = Join-Path $InstallDir "hbi.exe"
+    $StateArgs = @(
+        "internal", "updater", "write-state",
+        "--installer-kind", "powershell",
+        "--install-dir", $InstallDir,
+        "--managed-binary-path", $ManagedBinaryPath
+    )
+    if ($InstallSkills) {
+        $StateArgs += "--with-skills"
+        if ($Agent.Count -gt 0) {
+            $StateArgs += @("--skills-target-mode", "explicit")
+            foreach ($RequestedAgent in $Agent) {
+                $StateArgs += @("--agent", $RequestedAgent)
+            }
+        }
+        else {
+            $StateArgs += @("--skills-target-mode", "auto-detect")
+        }
+
+        foreach ($TargetPath in $ResolvedSkillTargets) {
+            $StateArgs += @("--resolved-skill-target", $TargetPath)
+        }
+    }
+
+    & $ManagedBinaryPath @StateArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to persist updater state"
     }
 }
 finally {
