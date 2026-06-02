@@ -98,8 +98,10 @@ metadata:
 自动化 / Agent 场景优先环境变量，但推荐顺序必须和当前 CLI SPEC 保持一致：
 
 ```bash
-export HBI_HOST="https://your-everest-instance.com"
+export HBI_HOST="your-everest-instance.com"
 ```
+
+裸 host 也可以；CLI 会在省略 scheme 时先探测 `https://`，失败后再试 `http://`。也支持带二级路径的 host，例如 `platform.hengshi.org/bi`。
 
 推荐顺序：
 
@@ -118,13 +120,13 @@ export HBI_HOST="https://your-everest-instance.com"
 人工 / 首次登录：
 
 ```bash
-HBI_HOST=https://preview.hengshi.com hbi auth login --device-login
+HBI_HOST=preview.hengshi.com hbi auth login --device-login
 ```
 
 自动化 / 已持有 renewable credential：
 
 ```bash
-HBI_HOST=https://preview.hengshi.com \
+HBI_HOST=preview.hengshi.com \
 HBI_CLIENT_ID="$HBI_CLIENT_ID" \
 HBI_CLIENT_SECRET="$HBI_CLIENT_SECRET" \
 hbi auth login
@@ -133,7 +135,7 @@ hbi auth login
 只想临时打一条命令，且明确接受 token 过期风险时，才使用：
 
 ```bash
-HBI_HOST=https://preview.hengshi.com HBI_TOKEN="<token>" hbi auth status
+HBI_HOST=preview.hengshi.com HBI_TOKEN="<token>" hbi auth status
 ```
 
 ### 指定用户视角执行

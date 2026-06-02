@@ -2,7 +2,7 @@
 
 set -eu
 
-VERSION="${HENGSHI_CLI_VERSION:-2.1.0}"
+VERSION="${HENGSHI_CLI_VERSION:-}"
 BASE_URL="${HENGSHI_CLI_BASE_URL:-https://download.hengshi.com/cli}"
 INSTALL_DIR="${INSTALL_DIR:-}"
 DRY_RUN=0
@@ -19,7 +19,7 @@ Usage:
   curl -fsSL ${BASE_URL}/install.sh | sh -s -- --with-skills --agent openclaw --agent claude-code
 
 Options:
-  --version <version>      Install a specific version (default: ${VERSION})
+  --version <version>      Install a specific version (default: latest published version)
   --install-dir <path>     Install directory override
   --with-skills            Also install bundled official skills into detected agent skill dirs
   --agent <name>           Install bundled official skills into a specific supported agent dir
@@ -37,6 +37,25 @@ EOF
 fail() {
     echo "Error: $*" >&2
     exit 1
+}
+
+fetch_stdout() {
+    url="$1"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "$url"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO- "$url"
+    else
+        fail "curl or wget is required"
+    fi
+}
+
+resolve_latest_version() {
+    latest_json="$(fetch_stdout "${BASE_URL%/}/latest.json")" ||
+        fail "failed to fetch ${BASE_URL%/}/latest.json"
+    latest_version="$(printf '%s\n' "$latest_json" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+    [ -n "$latest_version" ] || fail "failed to parse version from ${BASE_URL%/}/latest.json"
+    printf '%s\n' "$latest_version"
 }
 
 resolve_home_relative_path() {
@@ -231,6 +250,10 @@ fi
 
 if [ -z "$INSTALL_DIR" ]; then
     INSTALL_DIR="$HOME/.local/bin"
+fi
+
+if [ -z "$VERSION" ]; then
+    VERSION="$(resolve_latest_version)"
 fi
 
 LEGACY_BIN_PATH="${INSTALL_DIR}/everest"

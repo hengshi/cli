@@ -103,7 +103,9 @@ hbi update --version 2.1.0
 
 ```bash
 # Configure target instance
-export HBI_HOST="https://<your-hengshi-sense-instance>"
+export HBI_HOST="<your-hengshi-sense-instance>"
+# Bare host is fine; when scheme is omitted the CLI probes https:// first, then http://
+# Subpaths are supported too, e.g. HBI_HOST="platform.hengshi.org/bi"
 
 # Authenticate (device login recommended; Sense 6.2.1+)
 hbi auth login --device-login
@@ -145,10 +147,10 @@ The official installer writes these bundled skills directly into supported agent
 
 ```bash
 # Device login (recommended; Sense 6.2.1+)
-HBI_HOST="https://<your-hengshi-sense-instance>" hbi auth login --device-login
+HBI_HOST="<your-hengshi-sense-instance>" hbi auth login --device-login
 
 # Client ID / Secret (secondary; non-interactive or older hosts)
-HBI_HOST="https://<your-hengshi-sense-instance>" \
+HBI_HOST="<your-hengshi-sense-instance>" \
 HBI_CLIENT_ID="<client_id>" \
 HBI_CLIENT_SECRET="<client_secret>" \
 hbi auth login

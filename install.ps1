@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "2.1.0",
+    [string]$Version = "",
     [string]$BaseUrl = "https://download.hengshi.com/cli",
     [string]$InstallDir = "$env:LOCALAPPDATA\Programs\HENGSHI\bin",
     [switch]$WithSkills,
@@ -9,6 +9,18 @@ param(
 
 $ErrorActionPreference = "Stop"
 $InstallSkills = $WithSkills.IsPresent -or $Agent.Count -gt 0
+
+function Get-LatestVersion {
+    param([string]$BaseUrl)
+
+    $Metadata = Invoke-RestMethod -Uri ($BaseUrl.TrimEnd("/") + "/latest.json")
+    $ResolvedVersion = [string]$Metadata.version
+    if ([string]::IsNullOrWhiteSpace($ResolvedVersion)) {
+        throw "Could not resolve version from $BaseUrl/latest.json"
+    }
+
+    return $ResolvedVersion
+}
 
 function Get-AssetArch {
     function Resolve-AssetArchCandidate {
@@ -175,6 +187,10 @@ function Install-BundledSkills {
     }
 
     return $Targets
+}
+
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    $Version = Get-LatestVersion -BaseUrl $BaseUrl
 }
 
 $AssetArch = Get-AssetArch

@@ -103,7 +103,9 @@ hbi update --version 2.1.0
 
 ```bash
 # 配置目标实例
-export HBI_HOST="https://<你的-hengshi-sense-实例>"
+export HBI_HOST="<你的-hengshi-sense-实例>"
+# 裸 host 也可以；省略 scheme 时 CLI 会先探测 https://，失败后再试 http://
+# 也支持带二级路径的 host，例如 HBI_HOST="platform.hengshi.org/bi"
 
 # 认证（推荐 device-login；Sense 6.2.1+）
 hbi auth login --device-login
@@ -146,10 +148,10 @@ HENGSHI CLI 提供官方 skills，让 Agent 在不同环境里复用同一套领
 
 ```bash
 # 设备登录（推荐；Sense 6.2.1+）
-HBI_HOST="https://<你的-hengshi-sense-实例>" hbi auth login --device-login
+HBI_HOST="<你的-hengshi-sense-实例>" hbi auth login --device-login
 
 # Client ID / Secret（次选；用于非交互或更老主机）
-HBI_HOST="https://<你的-hengshi-sense-实例>" \
+HBI_HOST="<你的-hengshi-sense-实例>" \
 HBI_CLIENT_ID="<client_id>" \
 HBI_CLIENT_SECRET="<client_secret>" \
 hbi auth login
