@@ -11,12 +11,50 @@ $ErrorActionPreference = "Stop"
 $InstallSkills = $WithSkills.IsPresent -or $Agent.Count -gt 0
 
 function Get-AssetArch {
-    $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
-    switch ($arch) {
-        "x64" { return "amd64" }
-        "arm64" { return "arm64" }
-        default { throw "Unsupported Windows architecture: $arch" }
+    function Resolve-AssetArchCandidate {
+        param([AllowNull()][object]$Value)
+
+        if ($null -eq $Value) {
+            return $null
+        }
+
+        $Candidate = $Value.ToString().Trim().ToLowerInvariant()
+        if ([string]::IsNullOrWhiteSpace($Candidate)) {
+            return $null
+        }
+
+        switch ($Candidate) {
+            "x64" { return "amd64" }
+            "amd64" { return "amd64" }
+            "arm64" { return "arm64" }
+            default { throw "Unsupported Windows architecture: $Candidate" }
+        }
     }
+
+    $OsArchitectureProperty = $null
+    if ($null -ne $PSVersionTable) {
+        $OsArchitectureProperty = $PSVersionTable.PSObject.Properties["OSArchitecture"]
+    }
+
+    if ($null -ne $OsArchitectureProperty) {
+        $ResolvedArch = Resolve-AssetArchCandidate $OsArchitectureProperty.Value
+        if ($null -ne $ResolvedArch) {
+            return $ResolvedArch
+        }
+    }
+
+    try {
+        $RuntimeArch = Resolve-AssetArchCandidate ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)
+        if ($null -ne $RuntimeArch) {
+            return $RuntimeArch
+        }
+    }
+    catch {
+        Write-Warning ("Failed to read RuntimeInformation.OSArchitecture: " + $_.Exception.Message)
+    }
+
+    Write-Warning "Could not determine Windows architecture from PowerShell runtime; defaulting to amd64."
+    return "amd64"
 }
 
 function Resolve-HomeRelativePath {
