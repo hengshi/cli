@@ -52,6 +52,7 @@ metadata:
 - `permissions`
 - `publish`
 - `unpublish`
+- `republish`
 - `portal`
 - `locale`
 - `cache-config`
@@ -328,6 +329,10 @@ hbi app transfer <app_id> --user <user_id>
 hbi app publish <app_id> --folder <folder_id>
 hbi app publish <app_id> --folder <folder_id> --default-view portal
 hbi app unpublish <app_id> --force
+hbi app republish <app_id>
+hbi app republish <app_id> --description "Updated Q2 Report"
+hbi app republish <app_id> --default-view portal --cover ./new-cover.png
+hbi app republish <app_id> --dry-run
 ```
 
 ### 发布与分享不要混用
