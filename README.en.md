@@ -140,8 +140,9 @@ Representative skills include:
 - `hbi-dashboard` — dashboard planning, layout, and element authoring
 - `hbi-permission` — permission queries, grants, and revokes
 - `hbi-workflow` — cross-domain orchestration and sequencing
+- `hql-expert` — HQL / HE formula and expression authoring
 
-The official installer writes these bundled skills directly into supported agent skill directories and removes legacy `everest-*` skill folders during upgrade.
+The official installer writes bundled public skills directly into supported agent skill directories and removes legacy `everest-*` skill folders during upgrade. The public bundled skill set is limited to `hbi-*` and `hql-expert`; repo-maintenance skills and evaluation workspaces stay private.
 
 ## Authentication
 

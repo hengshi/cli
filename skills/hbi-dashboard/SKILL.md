@@ -22,7 +22,7 @@ metadata:
 - `dashboard` = 仪表盘
 - `element` = 控件
 - `chart` / `filter` / `container` / `image` / `text` 都挂在 `hbi element` 下
-- 业务指标中心的看板是 `kanban`，不要和普通仪表盘混用
+- 业务指标中心的看板资源是 `kanban`，不要和普通仪表盘混用；但 6.2 起普通仪表盘里的 chart 可以用 `measureSubjectId` 引用主题域业务指标作图
 - 图表阈值告警 / data alert 是独立资源，不属于 dashboard 布局 authoring；这类问题转 `hbi-data-alert`
 
 ## 常用命令入口
@@ -232,11 +232,26 @@ hbi dashboard plan export --app <app_id> --dashboard <dashboard_id> --output yam
 
 ```bash
 hbi dataset fields --app <app_id> --dataset <dataset_id>
-hbi metric list --app <app_id> --dataset <dataset_id>
+hbi metric list --app <app_id> --dataset <dataset_id> --limit 20
 ```
 
 前者看可用字段、类型与地理角色，后者看原子指标；不要跳过这一步直接臆造 `axes[].op`。
+`metric list` 的 JSON/YAML 输出是分页 envelope；写 plan 时从 `data` 取少量候选，从 `total` 判断是否还有更多候选，不要用 `--all` 拉全量指标。
 如果是时间分组，优先写真实 HQL，例如 `day({created_at})`、`month({created_at})`、`trunc_month({created_at})`；不要把日期字段先 `substring(...)` / `date_format(...)` 成字符串再拿去分组，也不要把 `field:granularity` 这种命令级 shorthand 混进 chart / plan 表达式里。
+
+如果要在普通 dashboard 里用主题域业务指标出图，先跑：
+
+```bash
+hbi subject list-metrics <subject_id> --limit 20 --output json
+hbi element chart create --dashboard <dashboard_id> --app <app_id> kpi --measure-subject <subject_id> --subject-measure <subject_metric_id>
+```
+
+规则：
+
+- `--subject-measure` 用的是 `subject list-metrics` 返回的 `id`，可重复；不是 `subject add-metrics` 的 `appId:datasetId:fieldName` 字符串。
+- 主题域 chart 不需要 `--dataset` / `--data-app`；普通 dataset chart 仍然需要 `--dataset`。
+- 更复杂的主题域维度、过滤、候选指标 payload，优先用 `element chart --file` 或 `dashboard plan`，并写 `measureSubjectId`、`candidateMeasures`、`sourceMeasureKeys`、`axes[].kind: measure`。
+- 如果用户要创建业务指标中心的“分析看板”资源，而不是普通 dashboard 内的一张 chart，转 `hbi-indicator-center` / `kanban`。
 
 遇到以下更细的配置约束时，再继续读取对应参考：
 
@@ -302,7 +317,7 @@ hbi element text --help
 ## 实战建议
 
 1. 先确认应用 ID。
-2. 再确认数据集/数据模型是否已经可用，并优先用 `dataset fields` / `metric list` 看清字段的 `Purpose`、`Format`、`Display Value`；如果用户问的是 formatter JSON，记住数据层是 `config.formatter.<type>` typed map，而图表轴层 `axes[].formatter` 只吃内层 flat leaf。
+2. 再确认数据集/数据模型是否已经可用，并优先用 `dataset fields` / `metric list --limit 20` 看清字段的 `Purpose`、`Format`、`Display Value`；如果用户问的是 formatter JSON，记住数据层是 `config.formatter.<type>` typed map，而图表轴层 `axes[].formatter` 只吃内层 flat leaf。
 3. 如果要从零起草整页 YAML，先用 `dashboard plan scaffold` 生成一个前端安全的骨架，再做针对性编辑。
 4. apply 前优先先跑 `dashboard plan validate`，把字段名、原子指标、Geo / Geo2D 地理角色前置条件、display value 这类问题提前暴露出来。
 5. 如果是复杂布局，优先走 `dashboard plan apply`，不要手工反复点式拼装。
@@ -329,9 +344,10 @@ hbi element text --help
 ## 与 `kanban` 的边界
 
 - 普通图表型分析页面：用 `dashboard` + `element`
-- 业务指标中心的分析看板：转 `hbi-indicator-center`，由它使用 `kanban`
+- 普通 dashboard 里使用主题域业务指标出图：仍然用 `dashboard` / `element chart`，数据源写 `measureSubjectId`
+- 业务指标中心的分析看板资源：转 `hbi-indicator-center`，由它使用 `kanban`
 
-如果用户强调“业务指标驱动”、“主题域指标上墙”、“指标中心”，优先切到 `hbi-indicator-center`，而不是继续按普通仪表盘 authoring 处理。
+如果用户强调“指标中心分析看板 / kanban / 指标上墙到看板”，优先切到 `hbi-indicator-center`；如果他说的是“在普通仪表盘里用主题域指标作图”，留在 `hbi-dashboard`。
 
 ## 禁止事项
 

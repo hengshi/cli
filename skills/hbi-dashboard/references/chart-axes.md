@@ -14,7 +14,8 @@
 - 如果想继承数据集字段上的展示格式，只有 `kind: field` 的轴适合配 `usingDatasetFormatter`
 - 对 `kind: formula` 的轴，优先把日期/数字展示格式直接写进 `axes[].formatter`
 - 如果数据集字段已经配置了显示值映射（例如 `user_id -> user_name`），图表轴还要显式写 `enableDisplayValue: true`
-- Dashboard chart 绑定的是数据集字段和原子指标，不是主题域业务指标；业务指标场景优先转 `kanban`
+- Dataset-driven dashboard chart 绑定的是数据集字段和原子指标；6.2 起普通 dashboard chart 也可以通过 `measureSubjectId` 使用主题域业务指标，指标轴写 `kind: measure`。
+- 主题域业务指标 ID 来自 `hbi subject list-metrics <subject_id>` 返回的 `id`；不要把 `subject add-metrics` 的 `appId:datasetId:fieldName` 字符串直接写进 chart axis。
 
 ## 常见 axisName
 
@@ -41,6 +42,50 @@
 | `geojson` | 地理对象 | `formula` | GeoJSON 驱动图层 |
 
 如果某个图表类型不在本参考里，不要硬猜；优先退回本参考已覆盖的安全 chartType，或明确说明这个图表的知识还没在 skill 中固化。
+
+## 主题域业务指标轴
+
+普通 dashboard / `element chart` 支持主题域指标作图时，chart 元素使用 `measureSubjectId` 标记主题域，`candidateMeasures` / `sourceMeasureKeys` 标记候选指标和查询 scope，指标轴写成：
+
+```yaml
+axes:
+  - kind: measure
+    op: "<subject_metric_id>"
+    name: x
+```
+
+规则：
+
+- `<subject_metric_id>` 是 `hbi subject list-metrics <subject_id>` 返回的 `id`。
+- CLI 会在生成 runtime 时自动补 `sourceMeasureId`。
+- `candidateMeasures` 至少保留 `id`、`appId`、`datasetId`、`fieldName`，这些同样来自 `subject list-metrics`。
+- 主题域 chart 不需要顶层 `datasetId` / `dataAppId`；不要为了通过旧校验而伪造 source dataset。
+- 只做普通仪表盘里的图表时留在 `hbi-dashboard`；要创建业务指标中心的分析看板资源时才转 `hbi-indicator-center` / `kanban`。
+
+最小 KPI 模板：
+
+```yaml
+- type: chart
+  chartType: KPI
+  title: <title>
+  measureSubjectId: <subject_id>
+  candidateMeasures:
+    - id: <subject_metric_id>
+      appId: <metric_app_id>
+      datasetId: <metric_dataset_id>
+      fieldName: <measure_field_name>
+  sourceMeasureKeys:
+    - <subject_metric_id>
+  axes:
+    - kind: measure
+      op: "<subject_metric_id>"
+      name: x
+  layout:
+    x: 0
+    y: 0
+    w: 4
+    h: 3
+```
 
 ## 常见图表的安全轴位组合
 

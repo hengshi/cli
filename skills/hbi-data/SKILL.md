@@ -131,6 +131,13 @@ metadata:
 - `--group sales,core`：写资源级分组，落到 `tags.group[]`
 - `measure create/update` 仍兼容旧的 `--tag` 长参数别名，但新写法优先用 `--group`
 
+数量类意图的 agent-safe 规则：
+
+- 用户问“有多少个业务指标 / 指标 / measures / metrics”时，不要执行 `--all` 后把全量列表交给模型数。
+- 优先使用分页列表的 metadata：`hbi measure query --limit 5 --output json`、`hbi measure list --app <app> --dataset <dataset> --limit 5 --output json`、`hbi metric list --app <app> --dataset <dataset> --limit 5 --output json`。
+- 这些列表默认返回分页 envelope，读取 `total` / `hasMore` / `truncated`，回复计数和少量样例即可；`data` 只当样例，不当完整集合。
+- 只有用户明确要求导出或人工确认要看全量明细时，才使用 `--all` 或更大的 `--limit`，并优先配合 `--write-output`。
+
 ### 已拆分出去的数据集成与数据科学领域
 
 `hbi pipeline --help`：

@@ -141,8 +141,6 @@ hbi data-model join-add \
 
 ## 当前实现的关键限制
 
-这是本技能最重要的部分。
-
 1. `join-add` 现在有两条 authoring lane：
    - 简单单字段对：`--on`
    - 多条件 / 混合 `AND` / `OR` / 更复杂逻辑：`--condition "<HQL>"`

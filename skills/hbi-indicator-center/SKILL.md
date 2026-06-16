@@ -21,12 +21,10 @@ metadata:
   1. 先在 `hbi-data` 里 `measure create/list/show`
   2. 再用本技能把 measure 挂到 `subject`
   3. 再用 `kanban` 把主题域指标上墙
-- 如果用户要的是普通字段驱动的分析页面、图表布局、dashboard plan YAML，不要留在本技能，转 `hbi-dashboard`。
+- 如果用户要的是普通 dashboard 页面、图表布局、dashboard plan YAML，不要留在本技能，转 `hbi-dashboard`；6.2 起普通 dashboard chart 也可以通过 `measureSubjectId` 使用主题域指标作图。
 - 如果用户要共享/授权主题域看板，再转 `hbi-permission`。
 
 ## 当前实现的关键合同
-
-这部分是本技能最重要的内容。
 
 1. `subject add-metrics` / `remove-metrics` / `toggle-online` 的 `<METRICS>` 都是**位置参数字符串**，格式必须是：
    - `appId:datasetId:fieldName`
@@ -35,7 +33,9 @@ metadata:
 
 2. `subject list-metrics <subject_id>` 才是“列出当前主题域里挂了哪些指标”的入口。
    - 它返回的 `id` 可以给 `kanban add-metric --metric`
+   - 它返回的 `id` 也可以给普通 dashboard chart 的 `element chart create --measure-subject <subject_id> --subject-measure <id>`
    - 因此 `subject` 与 `kanban` 用的“指标标识”不是同一套
+   - 它是列表型 tool result，默认只返回 agent-safe 第一页；数量类问题读取输出 envelope 的 `total`，不要用 `--all` 拉全量再让模型数。
 
 3. `subject toggle-online` 必须显式给且只给一个状态：
    - `--online`
@@ -109,7 +109,7 @@ metadata:
 hbi subject list --output json
 hbi subject create "北区经营分析"
 hbi subject add-metrics 12 3034:4:m1,3034:4:m2
-hbi subject list-metrics 12 --output json
+hbi subject list-metrics 12 --limit 5 --output json
 hbi subject toggle-online 12 3034:4:m1,3034:4:m2 --online
 hbi subject tokenize 12
 ```
@@ -120,13 +120,14 @@ hbi subject tokenize 12
 - 即使 `subject list-metrics` 已经返回了某条指标的 `id`，这个 id 也不能直接回填给 `remove-metrics` / `toggle-online`。
 - `toggle-online` 必须显式写 `--online` 或 `--offline`。
 - 如果用户说“把这个业务指标挂到主题域”，默认先确认 subject id，再拼 metric spec 字符串。
+- 如果用户问“这个主题域有多少业务指标”，执行 `hbi subject list-metrics <subject_id> --limit 5 --output json`，读取 `total`，只返回计数和少量样例；不要使用 `--all`。
 - `subject tokenize` 触发的是主题域 AI 分词 / 向量化任务；查看进度回到 `hbi scheduler list --entity-group ai-rag-measure-subject-tokenize`。
 
 ### 再把主题域指标加到分析看板
 
 ```bash
 hbi kanban create "北区经营总览"
-hbi subject list-metrics 12 --output json
+hbi subject list-metrics 12 --limit 5 --output json
 hbi kanban add-metric 88 --subject 12 --metric 456
 hbi kanban show 88 --output json
 hbi kanban duplicate 88 --title "北区经营总览（副本）"
@@ -139,7 +140,20 @@ hbi kanban duplicate 88 --title "北区经营总览（副本）"
 - `kanban add-metric --dry-run` 只会回显 ids，不会提前告诉你 x/y/w/h 和图表类型；这些是在真实执行时计算的。
 - 如果 measure 没有 `defaultChart.defaultChartType`，CLI 会把新 layout 的 `defaultChartType` 回退成 `KPI`。
 - 如果 `kanban add-metric` 找不到 metric，先回到 `subject list-metrics <subject_id>` 重新核对。
-- 如果用户想做常规 dashboard 样式编排，不要留在 `kanban`，转 `hbi-dashboard`。
+- 如果用户想做常规 dashboard 样式编排，或只是要把主题域指标放进普通 dashboard chart，不要留在 `kanban`，转 `hbi-dashboard`。
+
+### 把主题域指标放进普通仪表盘
+
+```bash
+hbi subject list-metrics 12 --limit 5 --output json
+hbi element chart create --dashboard 44 --app 3034 kpi --measure-subject 12 --subject-measure 456
+```
+
+规则：
+
+- 这里仍然先用本技能确认 subject 和 subject metric id。
+- 真正创建普通 dashboard 图表时切到 `hbi-dashboard`。
+- `--subject-measure` 用 `subject list-metrics` 返回的 `id`；不是 `add-metrics` 的 `appId:datasetId:fieldName`。
 
 ### 导出分析看板数据
 
@@ -172,7 +186,7 @@ hbi kanban export 88 --file export-payload.yaml --dry-run
 
 - 要创建/修改 `measure` 本身，或补数据集/数据模型前置条件：转 `hbi-data`
 - 要写复杂公式 / HQL / HE：转 `hql-expert`
-- 要做普通仪表盘、页面布局、图表/过滤器控件：转 `hbi-dashboard`
+- 要做普通仪表盘、页面布局、图表/过滤器控件，或把主题域指标作为普通 dashboard chart 数据源：转 `hbi-dashboard`
 - 要做 kanban / subject 的授权：转 `hbi-permission`
 - 要描述跨域完整链路（measure -> subject -> kanban -> permission）：转 `hbi-workflow`
 
@@ -182,5 +196,6 @@ hbi kanban export 88 --file export-payload.yaml --dry-run
 - 不要把 `kanban add-metric --metric` 写成 fieldName 或 `appId:datasetId:fieldName`。
 - 不要编造 `kanban create <title> --subject ... --metric ...` 这种一步完成的命令形态。
 - 不要把 `kanban` 当成普通 `dashboard` 的别名。
+- 不要把普通 dashboard chart 的 `--measure-subject` / `--subject-measure` 误当成 `kanban add-metric`；它们创建的是 dashboard chart，不是分析看板 layout。
 - 不要默认 `subject toggle-online` 不带 flag 就表示 offline。
 - 不要继续使用旧 `download` 或全局 `--output xlsx` 来导出 kanban 文件。

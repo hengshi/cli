@@ -25,8 +25,6 @@ metadata:
 
 ## 当前实现的关键限制
 
-这部分是本技能最重要的内容。
-
 1. `config update` / `config verify` 接收的是 **JSON/YAML 对象载荷**。
    输入方式是二选一：
    - `--file <json-or-yaml>`

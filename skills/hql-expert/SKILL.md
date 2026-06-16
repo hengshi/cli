@@ -1,6 +1,6 @@
 ---
 name: hql-expert
-description: "Hengshi Expression / HQL authority for HBI CLI. Use this skill whenever the user asks for `--expression` values, metric or measure formulas, dataset field expressions, `data-model query` HQL, `summarize_complete` / `select_fields_complete` / dataset-function HE, cross-dataset field references, or wants to translate business analysis language into executable HE/HQL. Also use it for advanced functions like `date_compare`, `previous`, `calculatex`, `lookupvalue`, `retention`, window functions, or when the task is really formula authoring rather than raw SQL."
+description: "Hengshi Expression / HQL authority for HBI CLI. Use this skill whenever the user asks for `--expression` values, metric or measure formulas, dataset field expressions, `data-model query` HQL, `summarize_complete` / `select_fields_complete` / dataset-function HE, cross-dataset field references, or wants to translate business analysis language into executable HE/HQL. Also use it for advanced functions like `date_compare`, `previous`, `calculatex`, `lookupvalue`, `retention`, window functions, or when the task is formula authoring rather than raw SQL."
 metadata:
   requires:
     files: ["references/"]

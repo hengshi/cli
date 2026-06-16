@@ -141,8 +141,9 @@ HENGSHI CLI 提供官方 skills，让 Agent 在不同环境里复用同一套领
 - `hbi-dashboard` —— 仪表板规划、布局与控件 authoring
 - `hbi-permission` —— 权限查询、授权与回收
 - `hbi-workflow` —— 跨领域编排与顺序控制
+- `hql-expert` —— HQL / HE 公式与表达式编写
 
-官方 installer 会把这些 bundled skills 直接写入支持的 agent skills 目录，并在升级时清理旧的 `everest-*` skill 目录。
+官方 installer 会把 bundled public skills 直接写入支持的 agent skills 目录，并在升级时清理旧的 `everest-*` skill 目录。对外 bundled skill 集合只包含 `hbi-*` 与 `hql-expert`；仓库维护、评测工作区等内部 skills 不随 public release 分发。
 
 ## 认证
 

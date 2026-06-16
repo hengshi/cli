@@ -206,6 +206,9 @@ dashboard:
 - `chartType`
 - `datasetId`
 - `dataAppId`
+- `measureSubjectId`
+- `candidateMeasures`
+- `sourceMeasureKeys`
 - `title`
 - `code`（仅 `CustomJS`）
 - `axes`
@@ -225,6 +228,8 @@ dashboard:
 
 `dataAppId` 是承载 `datasetId` 的 source data-app；不要把它和 `--app` / dashboard app id 当成同一个值。
 
+如果图表使用主题域业务指标，元素写 `measureSubjectId`，并用 `candidateMeasures` / `sourceMeasureKeys` 描述 `hbi subject list-metrics <subject_id> --limit 20 --output json` 返回的当前页候选指标。此模式不需要 `datasetId` / `dataAppId`；指标轴写 `kind: measure`，`op` 使用 `subject list-metrics` 返回的 metric-folder `id`。
+
 `axes` 每项至少包含：
 
 - `kind`
@@ -236,6 +241,36 @@ dashboard:
 如果目标是时间分组，优先写真实 HQL，例如 `day({created_at})` / `month({created_at})` / `trunc_month({created_at})` 这类日历函数；不要把日期字段先 `substring(...)`、`date_format(...)` 成字符串再分组，也不要把 `field:granularity` 这种命令级 shorthand 混进 chart / plan 表达式里。
 图表元素常用展示字段是 `title`，不要臆造 `name` 当成计划文件里的稳定字段。
 如果用户只要求“给我一个模板”，优先给最小 skeleton，不要把业务字段、筛选条件、排序条件一次性补满。
+
+主题域指标 KPI 最小 skeleton：
+
+```yaml
+dashboard:
+  name: 指标主题域页面
+  elements:
+    - type: chart
+      chartType: KPI
+      title: <title>
+      measureSubjectId: <subject_id>
+      candidateMeasures:
+        - id: <subject_metric_id>
+          appId: <metric_app_id>
+          datasetId: <metric_dataset_id>
+          fieldName: <measure_field_name>
+      sourceMeasureKeys:
+        - <subject_metric_id>
+      axes:
+        - kind: measure
+          op: "<subject_metric_id>"
+          name: x
+      layout:
+        x: 0
+        y: 0
+        w: 4
+        h: 3
+```
+
+先跑 `hbi subject list-metrics <subject_id> --limit 20 --output json` 拿真实 `id/appId/datasetId/fieldName` 样例，并读取分页 envelope 的 `total` / `hasMore`；不要把 `subject add-metrics` 的 `appId:datasetId:fieldName` 字符串当作 axis op，也不要用 `--all` 把全量候选塞进 plan。
 `style` 只应记录当前 CLI 真正会落到 patch 的安全子集；详细覆盖边界见 `chart-axes.md`。
 除了通用图例 / 颜色 / 轴 / tooltip / title / label 这类 `custom` 子树外，`style` 现在还支持一小批直接写到 chart 顶层 runtime 的高级字段：
 
@@ -726,7 +761,8 @@ container 内的嵌套控件目前重点支持：
 
 - 数据集 ID 还没确认
 - 图表字段 / 轴语义还没理清
-- 需要业务指标中心能力，其实应该走 `kanban`
+- 需要业务指标中心的分析看板资源，其实应该走 `kanban`
+- 主题域指标 ID 还没从 `hbi subject list-metrics` 确认
 - 只改一个现有图表的小字段，用 `element` patch 更直接
 
 ## 禁止事项
@@ -735,5 +771,5 @@ container 内的嵌套控件目前重点支持：
 - 不要假设 container tab 内支持所有顶层控件类型
 - 不要把模板示例里的 `datasetId`、`dataAppId`、字段名当成真实环境值直接发给用户
 - 不要编造 `elements[].id`、`control1` 之类的更新锚点
-- 不要把主题域业务指标直接当成普通 dashboard chart 的字段来写
+- 不要把主题域业务指标当成普通 dataset field / formula 来写；主题域 chart 必须用 `measureSubjectId` + `kind: measure`
 - 不要在未确认 `--update` 目标 dashboard 的情况下直接覆盖生产布局

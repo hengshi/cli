@@ -272,6 +272,8 @@ hbi preferences set-config some.key --value '{"enabled":true}' --dry-run
 常见约定：
 
 - CI / 脚本优先 `--output json`
+- `list` / `query` / `search` 类命令面向 agent 默认可能返回分页 envelope：`data` 是当前页样例，`total` / `offset` / `limit` / `hasMore` / `truncated` 是分页元信息；不要把 `data` 当完整集合。
+- 数量类意图优先读 `total`，只返回计数和少量样例；不要使用 `--all` 拉全量后让模型数。
 - 高风险写操作先加全局 `--dry-run`
 - 需要减少噪音时优先 `--output json` 做结构化提取，不要假设存在全局 `--quiet`
 - 删除、授权、发布、下线类操作再确认 `--yes` / `--force`
