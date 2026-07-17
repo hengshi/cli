@@ -122,6 +122,13 @@ metadata:
 - `show`
 - `query`
 
+`measure show` 支持数据集内两种稳定标识：
+
+- `hbi measure show --app <app_id> --dataset <dataset_id> m7`：`m` 加 ASCII 数字的 `fieldName` 直接查详情，优先级最高。
+- `hbi measure show --app <app_id> --dataset <dataset_id> 客群分析`：其他输入按可见 `label` 精确匹配；不做模糊选中、trim、大小写折叠或 Unicode 归一化。
+- 同一数据集存在多个完全相同的 label 时，命令会列出候选并要求改用 `fieldName`。
+- `measure update` / `measure delete` 仍只接受 `fieldName`，不要把 label 直接传给写操作。
+
 当前 `metric` / `measure` 的稳定 authoring 补充面：
 
 - `--display-format '<json>'`：写资源级 `config.formatter`
@@ -129,6 +136,10 @@ metadata:
   - 内层 value 复用 dashboard `axes[].formatter` 那套 flat `DisplayFormatter` leaf；不要把 `{"number": {...}}` 这种 wrapper 直接抄成轴级 `formatter`
   - 完整字段、示例和与 chart axis 的继承关系见 `references/payload-contracts.md`
 - `--group sales,core`：写资源级分组，落到 `tags.group[]`
+- `measure create/update --where <HQL>`：写业务指标限定条件；可重复传入，多个条件按 `AND` 组合
+- `measure create/update --time-dimension <field> --time-granularity <value>`：写业务指标时间轴；两个参数必须成对使用
+  - `timeGranularity` 取值与前端业务指标编辑器一致：`year` / `qoy` / `quarter` / `moy` / `month` / `week` / `dom` / `dow` / `day`
+  - `update` 显式写限定条件或时间轴时会切换为自定义分析语境（`granularityId=0`），避免已绑定的数据集粒度覆盖新配置
 - `measure create/update` 仍兼容旧的 `--tag` 长参数别名，但新写法优先用 `--group`
 
 数量类意图的 agent-safe 规则：
@@ -179,7 +190,18 @@ hbi connection types
 hbi connection list --output json
 hbi connection show <connection_id>
 hbi connection test <connection_id>
+hbi connection browse <connection_id> --schemas --output json
+hbi connection browse <connection_id> --schema public --output json
+hbi connection browse <connection_id> --schema hive --schema default --query orders --output yaml
 ```
+
+`connection browse` 的 path 过滤规则：
+
+- 不传 `--schema` 时，`--query` 继续对 schema/path、table、column 名称做模糊包含过滤。
+- `--schema` 每次只传一个 path 层级，可重复且保留顺序；多层 catalog/schema 使用 `--schema hive --schema default`，不要拼成 `hive.default`。
+- `--schemas` 不带值，只返回 schema/path 层级。
+- `--schema` 与 `--query` 同时使用时，先精确选择完整 path，再在该子树内做 query 过滤；两者是 AND 关系。
+- JSON/YAML 保留所选 path 的祖先层级，结果仍是 `PathTableNode[]`，没有额外 envelope。
 
 ### 2. 再找或建数据集
 
@@ -221,7 +243,7 @@ hbi dataset export --app <app_id> <dataset_id> --output-file dataset.xlsx
 | 字段名称 / 显示名 | `dataset column-update --column <field> --label ...` |
 | 字段描述 | `dataset column-update --column <field> --description ...` |
 | 字段类型 | `dataset column-update --column <field> --type ...` |
-| 字段用途 | `dataset column-update --column <field> --purpose ...` |
+| 字段用途 | `dataset column-update --column <field> --purpose dimension|measure` |
 | 显示 / 隐藏字段 | `dataset column-update --column <field> --visible true|false` |
 | 隐藏字段值 | `dataset column-update --column <field> --hide-value true|false` |
 | 展示格式 | `dataset column-update --column <field> --display-format ...` / `--clear-display-format` |
@@ -347,6 +369,7 @@ hbi dataset create-reference --app <app_id> --name <name> --source-app <source_a
 hbi dataset import --app <target_app_id> --source-app <source_app_id> --datasets 11,12
 hbi metric update --app <app_id> --dataset <dataset_id> <field_name> --group sales,core --display-format '{"number":{"thousands":true,"decimal":2}}'
 hbi measure update --app <app_id> --dataset <dataset_id> <field_name> --group finance --display-format '{"number":{"unit":"万元"}}'
+hbi measure update --app <app_id> --dataset <dataset_id> <field_name> --where "{status} = 'paid'" --time-dimension order_date --time-granularity month
 hbi metric list --app <app_id> --dataset <dataset_id>
 hbi measure list --app <app_id> --dataset <dataset_id>
 ```

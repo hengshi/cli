@@ -68,6 +68,8 @@ hbi dataset column-update --app 100 --dataset 200 --column amount \
 规则：
 
 - 改字段类型时，只写 top-level `type`
+- `--purpose` 只接受后端字段用途枚举 `dimension` / `measure`；请求体会归一化为 `DIMENSION` / `MEASURE`
+- 时间、主键、布尔等信息属于字段类型或业务角色，不是额外的 `purpose` 枚举
 - `basicType` / `originType` / `nativeType` 仍是读侧输出字段，不是稳定 authoring 面
 
 ### 展示格式 flags（`--display-format` / `--clear-display-format` / `--null-replace` / `--clear-null-replace`）

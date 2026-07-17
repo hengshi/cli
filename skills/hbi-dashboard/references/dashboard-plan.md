@@ -84,6 +84,7 @@ hbi dashboard create --dashboard-type report --data-app <data_app_id> --dataset 
 - 优先生成 `kind: field` 的轴，避免一上来就把字段写成 `kind: formula`，这样 `usingDatasetFormatter` / `enableDisplayValue` 更容易和数据集元数据对齐
 - 当字段或指标已有展示格式时，优先写 `usingDatasetFormatter: true`
 - 当筛选字段已有 display value 映射时，会在 filter 元素上补 `enableDisplayValue: true`
+- 时间字段由 `Type` 判断；`Purpose` 只使用后端支持的 `dimension` / `measure`
 - 若未显式指定 `--chart-type`，会按字段/指标形态做保守推断：
   - timestamp + metric → `Line`
   - dimension + metric → `Bar`
@@ -127,7 +128,7 @@ hbi dashboard create --dashboard-type report --data-app <data_app_id> --dataset 
 
 ## 推荐执行顺序
 
-1. 跑 `hbi dataset fields --app <app_id> --dataset <dataset_id>` 看 `Purpose` / `Format` / `Display Value` / `Geo Role`
+1. 跑 `hbi dataset fields --app <app_id> --dataset <dataset_id>` 看 `Type` / `Purpose` / `Format` / `Display Value` / `Geo Role`；时间字段看 `Type`，`Purpose` 只有 dimension / measure
 2. 跑 `hbi metric list --app <app_id> --dataset <dataset_id>` 看 atomic metrics
 3. 从 `dashboard plan scaffold` 或本参考的最小 skeleton 起草 YAML
 4. 补 family-specific runtime、过滤器、布局、交互配置

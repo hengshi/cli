@@ -235,7 +235,7 @@ try {
 
     $ExpectedHash = Select-String -Path $ChecksumPath -Pattern ([regex]::Escape($AssetName) + '$') |
         Select-Object -First 1 |
-        ForEach-Object { ($_ -split '\s+')[0] }
+        ForEach-Object { ($_.Line -split '\s+')[0] }
 
     if (-not $ExpectedHash) {
         throw "Missing checksum entry for $AssetName"

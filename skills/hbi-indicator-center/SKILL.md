@@ -75,6 +75,13 @@ metadata:
       - query 里固定会带 `type=xlsx` 和 `timeout=170000`
     - 如果 kanban 还是空壳、没有 layouts，CLI 不会因为“没图表可导出”直接报错；默认 body 会是空对象版的 `chartOptions + chartNames`
 
+9. `subject list --query <keyword>` 按主题域标题筛选目录树。
+    - 不要编造 `subject search`；稳定入口仍然是 `subject list`
+    - 查询会 trim 首尾空白并做大小写不敏感的标题包含匹配
+    - 输出保留匹配主题域的祖先路径，删除无关分支，仍然是 `FolderTreeData[]` 树而不是扁平列表
+    - `--output json` 无匹配时返回 `[]`；默认 table 输出 `No subject domains found.`
+    - 空或全空白 query 等同未传 `--query`
+
 ## 常用命令入口
 
 `hbi subject --help`：
@@ -107,6 +114,7 @@ metadata:
 
 ```bash
 hbi subject list --output json
+hbi subject list --query "北区经营" --output json
 hbi subject create "北区经营分析"
 hbi subject add-metrics 12 3034:4:m1,3034:4:m2
 hbi subject list-metrics 12 --limit 5 --output json
@@ -117,6 +125,7 @@ hbi subject tokenize 12
 规则：
 
 - `add-metrics` / `remove-metrics` / `toggle-online` 吃的是 `appId:datasetId:fieldName`，不要传 metric id。
+- 只有标题时，用 `subject list --query <keyword> --output json` 定位主题域 ID；不要改用不存在的 `subject search`。
 - 即使 `subject list-metrics` 已经返回了某条指标的 `id`，这个 id 也不能直接回填给 `remove-metrics` / `toggle-online`。
 - `toggle-online` 必须显式写 `--online` 或 `--offline`。
 - 如果用户说“把这个业务指标挂到主题域”，默认先确认 subject id，再拼 metric spec 字符串。
@@ -174,7 +183,7 @@ hbi kanban export 88 --file export-payload.yaml --dry-run
 ## 推荐工作流
 
 1. 先在 `hbi-data` 里确认 measure 已经存在（`measure list/show`）。
-2. 用 `subject list/create` 定位或新建主题域。
+2. 用 `subject list --query` 定位主题域，或用 `subject create` 新建主题域。
 3. 用 `subject add-metrics` 把业务指标挂到主题域。
 4. 用 `subject list-metrics` 看挂载结果，并拿到 metric id。
 5. 用 `kanban create` 建一个空分析看板。
@@ -198,4 +207,5 @@ hbi kanban export 88 --file export-payload.yaml --dry-run
 - 不要把 `kanban` 当成普通 `dashboard` 的别名。
 - 不要把普通 dashboard chart 的 `--measure-subject` / `--subject-measure` 误当成 `kanban add-metric`；它们创建的是 dashboard chart，不是分析看板 layout。
 - 不要默认 `subject toggle-online` 不带 flag 就表示 offline。
+- 不要编造 `subject search`；按标题查找走 `subject list --query`。
 - 不要继续使用旧 `download` 或全局 `--output xlsx` 来导出 kanban 文件。
