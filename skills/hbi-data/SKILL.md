@@ -137,6 +137,10 @@ metadata:
   - 完整字段、示例和与 chart axis 的继承关系见 `references/payload-contracts.md`
 - `--group sales,core`：写资源级分组，落到 `tags.group[]`
 - `measure create/update --where <HQL>`：写业务指标限定条件；可重复传入，多个条件按 `AND` 组合
+- `measure update --dimension <fieldName|label>`：替换业务指标的普通分析维度；可重复传入或用逗号分隔
+  - `fieldName` 优先，否则按字段 `label` 精确匹配；不做模糊或大小写折叠
+  - `--clear-dimensions` 显式清空普通分析维度；它与 `--dimension` 互斥
+  - 显式替换或清空会切换为自定义分析语境（`granularityId=0`）；未传这两个参数时保留原维度
 - `measure create/update --time-dimension <field> --time-granularity <value>`：写业务指标时间轴；两个参数必须成对使用
   - `timeGranularity` 取值与前端业务指标编辑器一致：`year` / `qoy` / `quarter` / `moy` / `month` / `week` / `dom` / `dow` / `day`
   - `update` 显式写限定条件或时间轴时会切换为自定义分析语境（`granularityId=0`），避免已绑定的数据集粒度覆盖新配置
@@ -338,7 +342,7 @@ hbi data-model suggest-joins --app <app_id> --dataset <dataset_id>
 
 需要 join 设计、主表/维表判断、join type 选择、cardinality 推断、关系验证时，不要停留在本技能，直接切到 `hbi-data-modeling`。
 
-`data-model query` 依然走位置参数 HQL，不是旧技能里写的 JSON `--he` 形式；表达式设计转 `hql-expert`。
+`data-model query` 兼容旧位置参数 HQL，但新写法优先用 `--expr uid="<HQL>"`、`--by uid="<HQL>"`、`--where`、`--having`、`--sort <uid>:desc`；它不是旧技能里写的 JSON `--he` 形式。表达式设计转 `hql-expert`。
 
 ### 5. 决定是用 `metric` 还是 `measure`
 
@@ -369,6 +373,8 @@ hbi dataset create-reference --app <app_id> --name <name> --source-app <source_a
 hbi dataset import --app <target_app_id> --source-app <source_app_id> --datasets 11,12
 hbi metric update --app <app_id> --dataset <dataset_id> <field_name> --group sales,core --display-format '{"number":{"thousands":true,"decimal":2}}'
 hbi measure update --app <app_id> --dataset <dataset_id> <field_name> --group finance --display-format '{"number":{"unit":"万元"}}'
+hbi measure update --app <app_id> --dataset <dataset_id> <field_name> --dimension region --dimension "商品分类"
+hbi measure update --app <app_id> --dataset <dataset_id> <field_name> --clear-dimensions
 hbi measure update --app <app_id> --dataset <dataset_id> <field_name> --where "{status} = 'paid'" --time-dimension order_date --time-granularity month
 hbi metric list --app <app_id> --dataset <dataset_id>
 hbi measure list --app <app_id> --dataset <dataset_id>

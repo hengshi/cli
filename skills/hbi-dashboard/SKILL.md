@@ -86,10 +86,12 @@ hbi dashboard create "月报" --app <report_app_id> --dashboard-type report --da
 - `--dashboard-type`
 - report dashboard 额外需要 `--data-app` + `--dataset`
 
-这里要特别分清三个概念：
+这里要特别分清这些概念：
 
 - `--app` 指目标 dashboard 所在的应用（analytic app / report-app）
-- `--data-app` / `dataAppId` 指承载 `datasetId` 的 source data-app，不是 dashboard 所在 app
+- `dashboard create` 与 `dataset-backed filter` 中，`dataAppId` 指向 `datasetId` 所属的 source data-app
+- `app-parameter-backed filter` 中，`dataAppId` 指向 `appParamId` / `appParamIds` 所属的参数 owner app；它不表示参数内部可能引用的动态数据集来源
+- 同一个 app-parameter-backed filter 只有一个参数 owner；`appParamIds` 中的所有参数必须共享同一个 `dataAppId`
 - 当前 CLI 的 `dashboard create` 里，`--data-app` / `--dataset` 这对 query 旗标是 report shell create 的入口；但这**不是**在说只有 report-app 才能使用 data-app 数据集
 
 这个歧义经常来自 report / analytic 的 authoring 时机不同：
@@ -313,6 +315,7 @@ hbi element text --help
 ```
 
 - 更新现有图表时，优先先跑 `hbi element chart show <chart_id> --dashboard <dashboard_id> --app <app_id> --as-spec > chart.yaml`，编辑后再 `hbi element chart update <chart_id> --dashboard <dashboard_id> --app <app_id> --file chart.yaml`；不要把 `chart create` 的内联 flags 直接脑补到 `chart update`。
+- 通用 `hbi element <kind> patch` 的稳定 `--path` 合同是 dashboard 级 JSON Pointer，按 `dashboard show --output json` 的 runtime `options` 路径写，不是相对于控件 ID 的路径。`hbi element button patch <button_id>` 会额外校验路径必须指向该按钮 layout，例如 `/options/layouts/<button_id>/title` 或 `/options/layouts/<button_id>/options/events`；`/title`、`/options/events` 这类控件相对路径应视为错误输入。
 
 ## 实战建议
 
@@ -322,7 +325,7 @@ hbi element text --help
 4. apply 前优先先跑 `dashboard plan validate`，把字段名、原子指标、Geo / Geo2D 地理角色前置条件、display value 这类问题提前暴露出来。
 5. 如果是复杂布局，优先走 `dashboard plan apply`，不要手工反复点式拼装。
 6. 如果用户没有给出真实 `datasetId`、`dataAppId`、字段名，就输出占位符模板，不要编造 `100`、`17`、`{sales}` 这类具体值。
-7. 不要把 `--app` / dashboard app id 和 `dataAppId` 混用：前者是目标 dashboard 所在 app，后者是承载数据集的 source data-app；analytic / page-like dashboard 也可以在 chart/filter 绑定里显式引用 data-app 数据集，和 report 并不冲突。
+7. 不要把 `--app` / dashboard app id 和 `dataAppId` 混用：前者是目标 dashboard 所在 app；`dataset-backed filter` 的 `dataAppId` 是数据集来源，`app-parameter-backed filter` 的 `dataAppId` 是参数 owner，且同一参数过滤器的 `appParamIds` 必须共享这个 owner。analytic / page-like dashboard 也可以在 chart/filter 绑定里显式引用其他应用的数据集或应用参数。
 
 ## 当前未固化 / 不要假设
 

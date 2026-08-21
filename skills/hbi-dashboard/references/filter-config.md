@@ -26,7 +26,26 @@
 | `treeType` | 树形过滤器行为 | 常见值如 `strict`、`loose` |
 | `filterOptions` | 常用 options 子集 | 例如 `placeholder`、`mobileOptions`、样式类字段 |
 | `filterMultiple` | 是否允许多值 | 只是一个维度，不是总开关 |
-| `datasetId` / `dataAppId` | 数据绑定 | 需要和图表使用的数据集保持一致；`dataAppId` 指承载该数据集的 source data-app，不是 dashboard 的 `appId` |
+| `datasetId` | 数据集绑定 | dataset-backed filter 需要和图表使用的数据集保持一致 |
+| `dataAppId` | 来源资源所属应用 | 按过滤器类型区分语义，不能默认当成 dashboard 的 `appId` |
+
+## `dataAppId` 按过滤器类型区分语义
+
+- `dataset-backed filter` 中，`dataAppId` 指向 `datasetId` 所属的 source data-app
+- `app-parameter-backed filter` 中，`dataAppId` 指向 `appParamId` / `appParamIds` 所属的参数 owner app；它不表示参数内部可能引用的动态数据集来源
+- 同一个 app-parameter-backed filter 只有一个参数 owner；`appParamIds` 中的所有参数必须共享同一个 `dataAppId`
+
+跨应用引用参数时，`--app` 仍是目标 dashboard 所在应用，`--data-app` 则是参数 owner：
+
+```bash
+hbi element filter create \
+  --app <dashboard_app_id> \
+  --dashboard <dashboard_id> \
+  --data-app <param_owner_app_id> \
+  --app-param <param_id>
+```
+
+应用参数过滤器不需要 `datasetId`。即使动态参数自身引用了数据集，顶层 `dataAppId` 仍表示参数 owner。
 
 ## CLI 当前安全默认组合
 
@@ -55,6 +74,28 @@
 - 树形过滤器的基础形态：`filterTree` / `paramTree` + `treeType`
 - 常用样式 runtime：`filterOptions.titleStyle`、`filterOptions.style.alignment`、`filterOptions.style.itemStyle`、`filterOptions.style.itemActiveStyle`
 - 移动端差异配置：`filterOptions.mobileOptions`（只有在确实不同于桌面端时才值得显式写）
+
+### 过滤按钮
+
+`filterType: filterBtn` 是执行已关联过滤器或参数的动作控件，不绑定数据集字段。因此：
+
+- 内联创建只需 `hbi element filter create --app <app_id> --dashboard <dashboard_id> --filter-type filter-btn`
+- 文件 spec 可以省略 `datasetId`、`dataAppId`、`filterField` 和 `filterUse`
+- `dashboard plan validate` 不会对 `filterBtn` 强制字段绑定
+- 普通数据过滤器仍然必须提供 `datasetId` 与 `filterField`；不要把这个例外推广到 `filter`、`filterSearch`、`filterTree`、`datePicker` 或 `filterDataset`
+
+最小文件 spec：
+
+```yaml
+type: filter
+filterType: filterBtn
+title: 查询
+layout:
+  x: 0
+  y: 0
+  w: 4
+  h: 1
+```
 
 ## 树形过滤器快速判断
 

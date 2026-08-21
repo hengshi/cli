@@ -91,7 +91,7 @@ chartOuterWheres:
 - `dashboard export-file`
   - query 由 CLI 自动补：
     - `requestId`
-    - `timeout=170000`
+    - `timeout=-1`（让首包立即返回 pending，再轮询 `poll-export`）
     - `type`
     - `width`
     - `height`
@@ -135,6 +135,7 @@ where:
 `chart export-file` 与 `chart export-data` 的关键区别是：
 
 - query 承载了主要导出参数：
+  - `timeout=-1`（让首包立即返回 pending，再轮询 `poll-export`）
   - `type`
   - `width`
   - `height`

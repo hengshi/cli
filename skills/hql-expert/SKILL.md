@@ -42,7 +42,7 @@ Before writing anything, decide which lane the task belongs to:
 | Metric | `metric create/update --expression`, `c1/c2` | one aggregate-oriented expression |
 | Measure | `measure create/update --expression`, `m1/m2` | expression plus awareness of dimensions / where / timeDimension context |
 | Dataset column | `dataset column-create/update --expression` | row-level or mixed expression suitable for a dataset field |
-| Data-model query | `data-model query --app --dataset "<HQL>"` | analytic query expression and, when needed, grouped/filtered CLI command |
+| Data-model query | `data-model query --app --dataset --expr uid="<HQL>"` or legacy positional `"<HQL>"` | analytic query expression and, when needed, grouped/filtered/having CLI command |
 | Dataset/table HE | `summarize_complete`, `select_fields_complete`, pipeline/table authoring | HE JSON or contract explanation |
 | Chart advanced calc | `date_compare`, `previous`, retention, moving/window calcs | function-family guidance with chart/runtime caveats |
 
@@ -94,7 +94,7 @@ Important repo-backed contracts:
 - `metric create/update --expression` stores a formula-like expression for **atomic metrics**
 - `measure create/update --expression` is not just “metric with another prefix”; measures carry **analysis context** like dimensions and filters
 - `dataset expression-rewrite --app --dataset --expression` is the simplest dataset-scoped validation / rewrite path
-- `data-model query` currently builds **analytic HE** around `summarize_complete(...)`, not raw SQL-style table projection
+- `data-model query` currently builds a chart-data-style analytic request, not raw SQL-style table projection
 - pipeline/table authoring may emit `select_fields_complete(...)` and other dataset-function HE directly
 
 ## Lane-specific guidance
@@ -159,11 +159,30 @@ Use when the user wants ad hoc analysis against a data model.
 Remember:
 
 - current CLI takes HQL as a positional value
+- the legacy positional HQL form is still valid and maps to output uid `value`
+- for new multi-metric work, prefer named expressions such as `--expr sales="SUM({amount})"`
 - `--by` builds dimension expressions
 - `--where` becomes filter conditions
-- the CLI constructs `summarize_complete(...)` under the hood
+- `--having` becomes post-aggregation filters and should reference output uids, for example `--having "sales > 1000000"`
+- the CLI sends data-model query through chart-data-style options
+- for joined data-model fields, use the relation dataset id exposed by `hbi data-model join-list` as `datasetId`, not the original joined dataset id from `joinDatasetId`
+- if a joined field name is unique across relations, the CLI can auto-qualify bare `{field}` in the expression / `--by` / `--where`; ambiguous joined field names must be written explicitly as `{{relation_dataset_id}}.{field}`
 
 So for query authoring, think “analytic result expression,” not “full SQL statement.”
+
+For common business metric words, do not stop at the label mismatch too early:
+
+- If the exact field / stored metric is absent but the same dataset has clear numeric components, author a derived aggregate candidate and state the evidence.
+  - “销售额 / GMV / 收入” with `{销量}` plus `{售价}` / `{单价}` can map to `SUM({销量}*{售价})` or `SUM({销量}*{单价})`.
+  - “金额 / 交易额” with `{数量}` plus `{单价}` can map to `SUM({数量}*{单价})`.
+- Do not ask clarification solely because a stored field named “销售额” is missing when the component formula is obvious.
+- Do ask / block when required component fields are absent, cross-dataset, or multiple plausible formulas have no stronger evidence.
+
+For superlatives such as “最大 / 最高 / Top N”, first check whether the command surface can express ranking:
+
+- `data-model query` supports stable result sorting via repeated `--sort <uid>[:asc|desc]`.
+- With explicit `--expr sales=...`, Top 1 by aggregate value should use `--sort sales:desc --limit 1`; with legacy positional HQL, the default aggregate uid is `value`, so use `--sort value:desc --limit 1`.
+- Do not treat bare `--limit 1` as “最大”; without an explicit `--sort`, it only truncates rows.
 
 ### Dataset/table HE lane
 

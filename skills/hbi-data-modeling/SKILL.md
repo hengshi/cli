@@ -187,16 +187,24 @@ hbi data-model join-add \
    - `left-loop`
    其中 loop join 还接受 `left_loop_join` / `left loop join`，但**不要编造成 `leftloop`**。
 
-11. `data-model query` 走位置参数 HQL，不是旧的 JSON `--he`。
-   当前数据集字段写 `{field}`，联表字段写 `{{dataset}}.{field}`；分组用重复的 `--by`，过滤用重复的 `--where`。
-   CLI 不会把原始 HQL 直接裸转发，而是先组装成 `summarize_complete` HE：
+11. `data-model query` 走 chart-data 同款分析查询路径，不是旧的 JSON `--he`。
+   当前数据集字段写 `{field}`；联表字段如果字段名在所有 join 关系里唯一，也可以直接写 `{field}`，CLI 会自动改写成 relation-qualified 引用；分组用重复的 `--by`，过滤用重复的 `--where`，聚合后过滤用重复的 `--having`。
+   旧的单个位置参数 HQL 仍兼容，并等价于输出 uid 为 `value` 的单指标表达式。新查询优先使用显式 uid：
+   - `--expr sales="SUM({amount})"` 会生成一个输出 uid 为 `sales` 的度量轴
+   - `--expr orders="COUNT(*)"` 可和其它 `--expr` 重复传入，形成多指标结果
+   - `--by region="group({region})"` 会生成一个输出 uid 为 `region` 的分组轴
    - `--by group({region})` 会变成 `group({{dataset_id}}.{region})`，uid 是 `region`
    - `--by month({created_at})` 会变成 `month({{dataset_id}}.{created_at})`，uid 是 `created_at_month`
-   - 度量表达式会变成 `SUM({{dataset_id}}.{amount})` 这类公式，uid 固定是 `value`
+   - 联表字段会使用 `join-list` 里 `datasetId` 暴露的 relation dataset id，例如 `{{relation_dataset_id}}.{brand_name}`；不要用原始 `joinDatasetId` 当查询前缀。
+   - 如果多个联表都有同名字段，CLI 会要求显式写 `{{relation_dataset_id}}.{field}`。
+   - `--sort <uid>[:asc|desc]` 支持按任意输出 uid 排序；显式 uid 时 Top 1/最大值应写 `--sort sales:desc --limit 1`，旧位置参数写法则仍用 `--sort value:desc --limit 1`。
+   - `--having "sales > 1000000"` 表示聚合后过滤，引用的是输出 uid，不是原始字段；不要把聚合后过滤塞进 `--where`。
+   - `--explain --output json` 只输出编译后的 chart-data request，不执行查询，适合调试和 eval 对比。
+   不要把没有 `--sort` 的裸 `--limit 1` 当成 Top 1。
 
 12. `--where` 有两条解析路径：
    - 简单条件（如 `{id} > 0`）会被解析成结构化 HE function
-   - 复杂条件会退回 formula；这时 CLI 只会把**裸** `{field}` 改写成 `{{dataset_id}}.{field}`，已经带前缀的 `{{orders}}.{field}` 会原样保留
+   - 复杂条件会退回 formula；这时 CLI 会把当前数据集裸字段改写成 `{{dataset_id}}.{field}`，把唯一联表裸字段改写成 `{{relation_dataset_id}}.{field}`，已经带前缀的 `{{orders}}.{field}` 会原样保留
 
 13. JSON 输出形态是稳定可脚本化的：
    - `show --output json`：`{ dataset, joins }`
@@ -233,9 +241,9 @@ hbi data-model lineage --app <app_id> --dataset <base_dataset_id>
 hbi data-model query \
   --app <app_id> \
   --dataset <dataset_id> \
-  "SUM({amount})" \
-  --by "group({region})" \
-  --by "month({created_at})" \
+  --expr sales="SUM({amount})" \
+  --by region="group({region})" \
+  --by month_created_at="month({created_at})" \
   --where "{status} = 'completed'"
 ```
 
@@ -278,6 +286,7 @@ hbi data-model query \
 - 不要把 many-to-one / one-to-many 的方向说成“跟谁唯一就算谁”，一定要说清楚是相对于 base dataset
 - 不要把 `join-delete` 说成能直接按 join_dataset / dataset pair 删除
 - 不要把 `data-model query` 说成旧的 JSON `--he` authoring 或逐行明细投影接口
+- 不要把裸 `data-model query --limit 1` 说成按度量取 Top 1；必须显式配合 `--sort <metric_uid>:desc` 才表示按聚合值取最大。旧位置参数 HQL 的默认 metric uid 是 `value`
 - 不要把裸 `{region}` 当成推荐 `--by` 写法；普通维度要显式写成 `group({region})`
 - 不要继续推荐 `created_at:month` / `region:none` 这类旧 shorthand；统一改成 `month({created_at})` / `group({region})`
 - 不要在 join 未验证前继续生成复杂指标和仪表盘
