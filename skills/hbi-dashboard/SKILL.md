@@ -9,6 +9,8 @@ metadata:
 
 # HBI Dashboard
 
+> 路由：问数/取数/出图（含仪表盘内提问）先读 `hbi-chatbi`；authoring session 中的删除、授权、调度、执行类变更先读 `hbi-data-agent-authoring`，本技能只负责读取与可恢复内容。
+
 > 前置：先读 `hbi-core`。如果还没有数据层，请先转 `hbi-data`。
 >
 > 把 `references/` 当成当前已固化的规则集；如果某个 chart family / filter 变体 / runtime 分支不在这些文档里，就不要臆造。
@@ -17,6 +19,11 @@ metadata:
 >
 > 需要写 `dashboard export-data/export-file` 或 `element chart export-data/export-file` 的 `--file/--value` 载荷时，继续读 `references/export-contracts.md`。
 
+在 `data-agent-session-v1` authoring session 中，dashboard shell、元素计划
+与可恢复内容 patch 可按当前用户权限执行；图表数据读取也可作为只读证据。
+发布、分享、导出副作用、全局主题创建和未审核的直接 API 写入需要服务端
+confirmation receipt 或明确 route admission，不能通过 dashboard skill 绕过。
+
 ## 概念边界
 
 - `dashboard` = 仪表盘
@@ -24,6 +31,10 @@ metadata:
 - `chart` / `filter` / `container` / `image` / `text` 都挂在 `hbi element` 下
 - 业务指标中心的看板资源是 `kanban`，不要和普通仪表盘混用；但 6.2 起普通仪表盘里的 chart 可以用 `measureSubjectId` 引用主题域业务指标作图
 - 图表阈值告警 / data alert 是独立资源，不属于 dashboard 布局 authoring；这类问题转 `hbi-data-alert`
+
+Sense 7.0 中，自动建模（`AUTO`）数据包的图表可引用包内任意数据集；手工建模（`MANUAL`）数据包的图表只能引用已有数据模型的主表和从表。AUTO 的跨数据集关联仍由服务端根据公共维度校验和推导；字段引用规则见 `hbi-data-modeling`。
+
+CLI 创作需要区分角色业务含义时，显式填写 `axes[].label`。例如，将 creator / updater 对应的指标分别命名为“创建人计数”“更新人计数”；轴位和显示名称的区别见 `references/chart-axes.md`。
 
 ## 常用命令入口
 
@@ -315,6 +326,7 @@ hbi element text --help
 ```
 
 - 更新现有图表时，优先先跑 `hbi element chart show <chart_id> --dashboard <dashboard_id> --app <app_id> --as-spec > chart.yaml`，编辑后再 `hbi element chart update <chart_id> --dashboard <dashboard_id> --app <app_id> --file chart.yaml`；不要把 `chart create` 的内联 flags 直接脑补到 `chart update`。
+- 隐藏或显示图表标题时，先读 `references/dashboard-runtime.md` 的“图表标题显隐”：资源名称、卡片外层标题和图表内部标题是不同字段，不能只凭一个开关的回读判断全部完成。
 - 通用 `hbi element <kind> patch` 的稳定 `--path` 合同是 dashboard 级 JSON Pointer，按 `dashboard show --output json` 的 runtime `options` 路径写，不是相对于控件 ID 的路径。`hbi element button patch <button_id>` 会额外校验路径必须指向该按钮 layout，例如 `/options/layouts/<button_id>/title` 或 `/options/layouts/<button_id>/options/events`；`/title`、`/options/events` 这类控件相对路径应视为错误输入。
 
 ## 实战建议

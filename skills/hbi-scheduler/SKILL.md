@@ -9,12 +9,31 @@ metadata:
 
 # HBI Scheduler
 
+> 路由：问数/取数/出图（含仪表盘内提问）先读 `hbi-chatbi`；authoring session 中的删除、授权、调度、执行类变更先读 `hbi-data-agent-authoring`，本技能只负责读取与可恢复内容。
+
 > 前置：先读 `hbi-core`。如果用户还在创建资源本体或首次创建计划，先回对应领域技能；这里负责的是**已有计划的治理面**。
 
 ## 资源边界
 
-- `scheduler` 管的是已经存在的执行计划与执行上下文，不负责替资源做“首次创建计划”。
-- 首次创建入口仍在各自资源面：
+在 `data-agent-session-v1` authoring session 中，scheduler 的读取面（detail、
+logs、results、DAG、errors）可直接使用。写操作走 operation proposal：
+`create` → `scheduler.create`，`update`（cron/时区）→ `scheduler.update`，
+启停 → `scheduler.switch`，删除 → `scheduler.delete`；用户在对话里确认后执行。
+依赖与失败通知的修改暂未开放，rerun 与通知配置仍应预期 `POLICY_DENIED`，不要
+反复重试。
+
+**authoring session 里创建计划必须走 operation proposal**，不要调用各资源面的
+`create` 命令（这些命令在 authoring 下会被服务端拒绝，返回认证类错误而不是 CLI 的 `POLICY_DENIED`）：
+
+```bash
+hbi data-agent operation propose --kind scheduler.create --file plan.json --output json
+```
+
+payload 示例、数据集刷新（“帮我跑一下 XXX”）和定时刷新的口语映射见
+`hbi-data-agent-authoring` 的 “High-risk operations”。不要 grep 或反编译
+`hbi` 二进制来推断 payload。
+
+下面这些首次创建入口只适用于非 authoring 会话：
   - `pipeline schedule <pipeline_id> create`
   - `notebook schedule <notebook_id> create`
   - `dataset schedule --app <app_id> --dataset <dataset_id> create`

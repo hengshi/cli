@@ -9,6 +9,8 @@ metadata:
 
 # HBI Indicator Center
 
+> 路由：问数/取数/出图（含仪表盘内提问）先读 `hbi-chatbi`；authoring session 中的删除、授权、调度、执行类变更先读 `hbi-data-agent-authoring`，本技能只负责读取与可恢复内容。
+
 > 前置：先读 `hbi-core`。本技能负责的是 **subject + kanban** 这条业务指标中心链路；`measure` 本身的创建/公式语义仍属于 `hbi-data` / `hql-expert`。
 >
 > 需要写 `kanban export` 的 `--file/--value` 载荷时，继续读 `references/kanban-export.md`。
@@ -23,6 +25,14 @@ metadata:
   3. 再用 `kanban` 把主题域指标上墙
 - 如果用户要的是普通 dashboard 页面、图表布局、dashboard plan YAML，不要留在本技能，转 `hbi-dashboard`；6.2 起普通 dashboard chart 也可以通过 `measureSubjectId` 使用主题域指标作图。
 - 如果用户要共享/授权主题域看板，再转 `hbi-permission`。
+
+## Data Agent authoring boundary
+
+在 `data-agent-session-v1` authoring session 中，主题域目录、指标成员关系、
+分析看板及其可恢复内容可按当前用户的原生 ACL 执行；不再签发资源 × action
+scope。主题域不再提供旧的 `tokenize` / 向量化入口；Headless Agent 应通过
+`hbi chatbi context --subject` 和 `hbi chatbi query --subject` 读取、查询主题域。
+CLI 的提前拒绝不是权限来源，服务端 delegated token、主题域 ACL 与业务校验仍是最终授权。
 
 ## 当前实现的关键合同
 
@@ -95,7 +105,6 @@ metadata:
 - `remove-metrics`
 - `toggle-online`
 - `list-metrics`
-- `tokenize`
 
 `hbi kanban --help`：
 
@@ -119,7 +128,6 @@ hbi subject create "北区经营分析"
 hbi subject add-metrics 12 3034:4:m1,3034:4:m2
 hbi subject list-metrics 12 --limit 5 --output json
 hbi subject toggle-online 12 3034:4:m1,3034:4:m2 --online
-hbi subject tokenize 12
 ```
 
 规则：
@@ -130,7 +138,7 @@ hbi subject tokenize 12
 - `toggle-online` 必须显式写 `--online` 或 `--offline`。
 - 如果用户说“把这个业务指标挂到主题域”，默认先确认 subject id，再拼 metric spec 字符串。
 - 如果用户问“这个主题域有多少业务指标”，执行 `hbi subject list-metrics <subject_id> --limit 5 --output json`，读取 `total`，只返回计数和少量样例；不要使用 `--all`。
-- `subject tokenize` 触发的是主题域 AI 分词 / 向量化任务；查看进度回到 `hbi scheduler list --entity-group ai-rag-measure-subject-tokenize`。
+- 如果需要按主题域筛选候选指标，使用 `hbi chatbi context --subject <subject_id>`，需要关键词时追加 `--query`；不要恢复旧的 `subject tokenize` 入口。
 
 ### 再把主题域指标加到分析看板
 

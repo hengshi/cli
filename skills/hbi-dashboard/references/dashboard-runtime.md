@@ -4,6 +4,7 @@
 
 - 需要解释 `hbi dashboard show --output json` 的结构
 - 需要说明 `layouts`、`chartMap`、`filterMap`、`containerMap`、`tabMap` 的关系
+- 需要隐藏或显示图表标题，或排查标题字段回读与页面可见性不一致
 - 需要判断 `dashboard plan` 的 YAML 子集和前端 runtime JSON 之间还差哪些字段
 
 ## 运行时对象地图
@@ -24,6 +25,29 @@
 | `pxLayouts` / `pxMobileLayouts` | 固定尺寸布局表 |
 | `config` | dashboard 主题、网格、设备、模式配置 |
 | `page` | infographic/page 尺寸与背景配置 |
+
+## 图表标题显隐
+
+图表有三种容易混淆的标题信息：
+
+| runtime 字段 | 含义 |
+|---|---|
+| `options.chartMap[<chart_id>].title` | 图表资源名称；隐藏标题不应改名或清空它 |
+| `options.chartMap[<chart_id>].options.titleStyle.show` | 卡片外层标题开关，KPI 的可见标题由它控制；缺失时不能视为已隐藏 |
+| `options.chartMap[<chart_id>].options.custom.title.show` | 图表内部标题开关；仅关闭它不能证明 KPI 标题已隐藏 |
+
+“隐藏所有图表标题”的目标是每个目标图表的两个开关都显式为 `false`。先从 `dashboard show --output json` 确认完整图表集合，不因 KPI 的内部开关已经关闭而跳过它；保留资源名称、指标/轴、数据绑定、过滤条件、其他样式和布局。
+
+当前 file-based chart / plan authoring 用 `style.title.show: false` 表达隐藏，CLI 会同时写入两个 runtime 开关。编辑现有图表时先 `chart show --as-spec`，只修改导出规格的 `style.title.show`，再 `chart update --file`；不要把 runtime 的 `custom.title` 直接当作 spec 顶层字段。
+
+只做标题的窄 patch 时，两个 dashboard 级路径分别是：
+
+- `/options/chartMap/<chart_id>/options/titleStyle/show`
+- `/options/chartMap/<chart_id>/options/custom/title/show`
+
+使用 `element chart patch --help` 确认参数；批量 `--charts` 的路径用 `{chart}` 占位。每条命令仍只修改所指定的路径，不能把一次外层 patch 当成两个开关都已修改。先看 dry-run 的目标 ID / 路径 / 值，再执行写入。
+
+完成判定要覆盖全部目标 ID：回读每个图表的两个开关，并对照写前快照确认其余配置未改变；CLI 返回成功或图表仍存在都不能替代这些断言。页面效果还需刷新后的浏览器或等价渲染证据。只有配置回读时，明确说明“配置已确认，页面效果待验证”；用户反馈仍显示时继续查两个开关和渲染结果，不凭 API 回读归因为浏览器缓存。
 
 ## Layout item
 

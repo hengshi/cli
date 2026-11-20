@@ -9,9 +9,16 @@ metadata:
 
 # HBI Notebook
 
+> 路由：问数/取数/出图（含仪表盘内提问）先读 `hbi-chatbi`；authoring session 中的删除、授权、调度、执行类变更先读 `hbi-data-agent-authoring`，本技能只负责读取与可恢复内容。
+
 > 前置：先读 `hbi-core`。涉及数据连接与数据资产时，同时参考 `hbi-data`。复杂 HE/HQL 表达式设计再转 `hql-expert`。
 
 ## 资源边界
+
+在 `data-agent-session-v1` authoring session 中，notebook 与 paragraph 的
+内容 CRUD 可直接执行；paragraph `execute`、connection authorize/revoke
+以及任何调度写操作属于高风险或可执行外部效果，当前需要服务端
+confirmation receipt，不能用相邻命令替代。
 
 - `notebook` 是数据科学项目，不是 `pipeline`、`dataset` 或 `dashboard`。
 - `paragraph` 是 notebook 内部段落；它有自己的 `paragraph_id`，不等于 `notebook_id`。

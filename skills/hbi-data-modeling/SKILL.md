@@ -9,6 +9,8 @@ metadata:
 
 # HBI Data Modeling
 
+> 路由：问数/取数/出图（含仪表盘内提问）先读 `hbi-chatbi`；authoring session 中的删除、授权、调度、执行类变更先读 `hbi-data-agent-authoring`，本技能只负责读取与可恢复内容。
+
 > 前置：先读 `hbi-core` 和 `hbi-data`。表达式设计再转 `hql-expert`。
 
 ## 这个技能负责什么
@@ -20,6 +22,17 @@ metadata:
 - 用什么 join type
 - 用什么键去连
 - 连完之后怎么验证结果
+
+## Sense 7.0：AUTO 数据包
+
+先通过 `hbi app show <app_id> --output json` 或 `data-model query --capability --output json` 确认有效 `modelingType`。缺失或 `null` 按 `MANUAL` 处理。
+
+- `MANUAL` 的图表和指标只能引用已有数据模型的主表和从表；跨数据集字段使用 `join-list` 暴露的 relation dataset ID。
+- `AUTO` 的图表和指标可引用包内任意数据集，不限于预先建立的主从表模型。CLI 不读取或补写 manual extend graph，而是读取应用的数据集和字段 schema，排除 `options.type=extend`，并使用物理数据集的真实 ID；不产生或使用虚拟 ID。跨数据集关联仍由服务端校验和推导。
+- AUTO 查询中，裸字段精确匹配时优先 base dataset；base 不匹配而其它物理数据集恰好唯一匹配时，CLI 使用该数据集 ID 限定；多个候选时必须显式写 `{{dataset_id}}.{field}`。显式 dataset 或 role 限定会保留，并由服务端验证其适用性。
+- AUTO 模式的 `query` capability 会显示建模方式和可用物理引用。`join-add`、`join-delete` 等手工 join 写入不用于 AUTO 数据包；不要把 CLI 当成 AUTO 的 join planner。
+
+**只有 `modelingType=AUTO` 的数据包支持角色语法** `{{dataset_id}}[role].{field}`；手工建模（`MANUAL`）及其他场景中的角色没有意义，不应依赖角色区分关联。AUTO 数据包的公共维度无显式角色回退顺序由后端 mapping 顺序决定。服务端的连接性错误（包括 `10390` / `10391`）按既有 API 错误面返回，不能据此在客户端猜测或创建关联。
 
 ## 当前 CLI 的稳定入口
 
@@ -191,7 +204,7 @@ hbi data-model join-add \
    当前数据集字段写 `{field}`；联表字段如果字段名在所有 join 关系里唯一，也可以直接写 `{field}`，CLI 会自动改写成 relation-qualified 引用；分组用重复的 `--by`，过滤用重复的 `--where`，聚合后过滤用重复的 `--having`。
    旧的单个位置参数 HQL 仍兼容，并等价于输出 uid 为 `value` 的单指标表达式。新查询优先使用显式 uid：
    - `--expr sales="SUM({amount})"` 会生成一个输出 uid 为 `sales` 的度量轴
-   - `--expr orders="COUNT(*)"` 可和其它 `--expr` 重复传入，形成多指标结果
+   - `--expr orders="COUNT({order_id})"` 可和其它 `--expr` 重复传入，形成多指标结果；应优先使用 context 中已知字段，不要默认假设后端接受 `COUNT(*)`
    - `--by region="group({region})"` 会生成一个输出 uid 为 `region` 的分组轴
    - `--by group({region})` 会变成 `group({{dataset_id}}.{region})`，uid 是 `region`
    - `--by month({created_at})` 会变成 `month({{dataset_id}}.{created_at})`，uid 是 `created_at_month`
@@ -200,6 +213,7 @@ hbi data-model join-add \
    - `--sort <uid>[:asc|desc]` 支持按任意输出 uid 排序；显式 uid 时 Top 1/最大值应写 `--sort sales:desc --limit 1`，旧位置参数写法则仍用 `--sort value:desc --limit 1`。
    - `--having "sales > 1000000"` 表示聚合后过滤，引用的是输出 uid，不是原始字段；不要把聚合后过滤塞进 `--where`。
    - `--explain --output json` 只输出编译后的 chart-data request，不执行查询，适合调试和 eval 对比。
+   - `--capability --output json` 输出 `data-model query` 对当前 app/dataset 的能力契约：`surface` 是 CLI 参数表达面，`expressionDialect` 来自 dataset functions 接口。不要把 `surface` 当成 HQL 函数支持证明；高级函数、window / `OVER` 这类组合仍要看 `expressionDialect`，必要时用 `--explain` 或真实查询验证具体表达式。
    不要把没有 `--sort` 的裸 `--limit 1` 当成 Top 1。
 
 12. `--where` 有两条解析路径：

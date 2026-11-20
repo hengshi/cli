@@ -26,6 +26,9 @@
 | `treeType` | 树形过滤器行为 | 常见值如 `strict`、`loose` |
 | `filterOptions` | 常用 options 子集 | 例如 `placeholder`、`mobileOptions`、样式类字段 |
 | `filterMultiple` | 是否允许多值 | 只是一个维度，不是总开关 |
+| `appParamBindings` | 过滤器输出点到应用参数的绑定 | plan/runtime 同名；启用项由 `validate` 检查源字段、输出点及目标参数兼容性 |
+| `controlledBy` | plan 中的过滤按钮引用 | 映射到 runtime `controller: {filterBtnUid: true}` |
+| `controller` | runtime 过滤按钮控制映射 | 不在 plan 里手写；导出时归一化成 `controlledBy` |
 | `datasetId` | 数据集绑定 | dataset-backed filter 需要和图表使用的数据集保持一致 |
 | `dataAppId` | 来源资源所属应用 | 按过滤器类型区分语义，不能默认当成 dashboard 的 `appId` |
 
@@ -74,6 +77,9 @@ hbi element filter create \
 - 树形过滤器的基础形态：`filterTree` / `paramTree` + `treeType`
 - 常用样式 runtime：`filterOptions.titleStyle`、`filterOptions.style.alignment`、`filterOptions.style.itemStyle`、`filterOptions.style.itemActiveStyle`
 - 移动端差异配置：`filterOptions.mobileOptions`（只有在确实不同于桌面端时才值得显式写）
+- analytic dashboard 的过滤器输出绑定：`appParamBindings`
+- analytic dashboard 的过滤按钮控制关系：显式 filter `id` + `controlledBy`。使用 `region_filter` 等描述性 ID；纯数字、`c_<数字>`、`img_<数字>`、`<数字>button[<数字>]`、`<数字>shape[<数字>]` 是自动布局保留格式，不能作为 filter ID。
+- page/report 导出的 shell 按钮控制关系可安全回放；导出的 runtime UID 会在 apply 时重映射到目标 dashboard 的预置 outer `filterBtn`，但这不是 page/report 手写 `filterBtn` 的 authoring 入口
 
 ### 过滤按钮
 
@@ -162,18 +168,55 @@ layout:
     h: 1
 ```
 
+### 过滤器绑定应用参数 + 过滤按钮
+
+```yaml
+- id: apply_filters
+  type: filter
+  filterType: filterBtn
+  filterField: "{<filter_field>}"
+  datasetId: <datasetId>
+  dataAppId: <dataAppId>
+  layout: { x: 0, y: 0, w: 2, h: 1 }
+
+- id: region_filter
+  type: filter
+  filterType: filter
+  filterField: "{<filter_field>}"
+  filterUse: radio
+  filterMethod: select
+  datasetId: <datasetId>
+  dataAppId: <dataAppId>
+  controlledBy: apply_filters
+  appParamBindings:
+    - pointCode: value
+      targetAppId: <targetAppId>
+      targetParamId: <targetParamId>
+      enabled: true
+  layout: { x: 2, y: 0, w: 4, h: 1 }
+```
+
+`pointCode` 的稳定值域：
+
+- 单值/搜索：`value`
+- 多值：`values`
+- 数值范围：`min` / `max`
+- 日期时间范围：`start` / `end`
+
+同一个过滤器里的 `pointCode` 不可重复。`targetType`、`targetMultiple`、`targetGranularity` 主要用于导出 round-trip；手写新绑定时不要猜这些派生元数据。
+
 ## 当前已固化
 
-- plan 稳定支持的重点是：`filterType`、`filterField`、`enableDisplayValue`、`filterMultiple`、`filterUse`、`filterMethod`、`treeType`、`filterOptions`、`datasetId`、`dataAppId`、`layout`
+- plan 稳定支持的重点是：`filterType`、`filterField`、`enableDisplayValue`、`filterMultiple`、`filterUse`、`filterMethod`、`treeType`、`filterOptions`、`appParamBindings`、`controlledBy`、`datasetId`、`dataAppId`、`layout`
 - `filterOptions.style.flexWrap` 现在按前端 runtime 真实值透传，常见写法是 `"nowrap"` / `"wrap"`，不要再把它当成布尔值
 - `enableDisplayValue` 只是在 filter field 上打开显示值映射；如果数据集字段自身没有配置映射关系，单独写这个开关也不会凭空出现显示值
 - `filterMultiple` 不是前端过滤器能力的总开关。日期、参数、树形、多值输入都各有自己的一组字段
 - 明确的 `paramTree` / app param 级联场景现在可以稳定 round-trip `fieldSiblings`；但不要把这推广成一般 dataset filter / linkage filter runtime 都已固化
-- 当前真正可对外承诺的 filter linkage slice 仍然只到 `paramTree + fieldSiblings`；`associationChart`（datePicker 图表绑定）、`byDashboard`、`chain` 等更深 linkage / global-style 结构还不是稳定 CLI authoring surface
+- 当前可对外承诺的 filter linkage slice 包括 `paramTree + fieldSiblings`、analytic dashboard 内 `controlledBy -> filterBtn`，以及 page/report shell-seeded controller 的 export/reapply；`associationChart`（datePicker 图表绑定）、`byDashboard`、`chain` 等更深 linkage / global-style 结构还不是稳定 CLI authoring surface
 
 ## 当前未固化 / 不要假设
 
-- 更复杂的 linkage / global-style runtime 字段，例如 `associationChart`、`hierarchy`、`byDashboard`、`chain`、`stylesAtDashboard`，以及超出 `paramTree + fieldSiblings` 最小闭环的树级联结构
+- 更复杂的 linkage / global-style runtime 字段，例如 `associationChart`、`hierarchy`、`byDashboard`、`chain`、`stylesAtDashboard`，以及超出 `paramTree + fieldSiblings`、`controlledBy -> filterBtn` 最小闭环的关系结构
 - 每一种 `filterOptions` 子字段和嵌套 style 都已经文档化
 - 所有 dataset filter / linkage filter / 树形级联行为都能直接盲写
 - 复杂 operator 矩阵、默认值联动、发布态展示细节都已完全固化

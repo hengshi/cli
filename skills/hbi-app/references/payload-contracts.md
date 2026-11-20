@@ -12,14 +12,56 @@
 | 连接替换 / 换连接 / 库表路径映射 | `app connection-replace` | `[].current` / `[].replace` / `[].replaceSchema` |
 | 多语言开关 / 默认语言 / 翻译词条 | `app locale update` | `localeConfig.localesEnabled` / `localeConfig.defaultLocale` / `localeConfig.localesMap` |
 | 门户菜单 / 导航 / 顶部菜单 / 底部菜单 / 标题 / Logo / 门户主题 | `app portal apply` | `pc.*` / `mobile.*` / `menus[]` |
+| 公共维度映射 / 复合键 / 键角色 / 数据集角色 | `app dimension create/update` | `mappings[]` |
 | 行级权限 / 列级权限 / 规则作用对象 / SIMPLE vs FORMULA | `app rule create/update` | `dataFilters[].filter.where` / `dataFilters[].filter.excludeColumns` / `users` / `organizations` / `orgs` / `tenants` / `options.filterCategory` |
 | 订阅渠道 / 邮件订阅 / Webhook / 企微 / 飞书 / 钉钉 | `app subscribe create/update` | `email` / `webhook` / `wecom` / `feishu` / `dingtalk` |
 
 ## 通用规则
 
 - `connection-replace` 的 payload 是 **array**
-- `portal apply`、`locale update`、`rule create/update`、`subscribe create/update` 的 payload 都是 **object**
+- `portal apply`、`locale update`、`dimension create/update`、`rule create/update`、`subscribe create/update` 的 payload 都是 **object**
 - `rule` / `subscribe` 这两类命令的 CLI flags 会和 payload 一起 merge；flags 的优先级更高
+
+## `app dimension create/update`
+
+**数据集角色仅对 `modelingType=AUTO` 的数据包有意义**，用于 HQL 角色语法 `{{dataset_id}}[role].{field}`。手工建模（`MANUAL`）及其他场景不支持角色语义，不应依赖 `roleName` 区分关联。
+
+Sense 7.0 中，公共维度的完整写入形状是包含 `mappings` 数组的 object。将它传给 `--file` 或 `--value`；维度名称仍由位置参数提供，`description` 可选：
+
+```json
+{
+  "mappings": [
+    {
+      "appId": 30,
+      "datasetId": 1,
+      "fields": ["tenant", "id"],
+      "keyRole": "UNIQUE",
+      "roleName": null
+    },
+    {
+      "datasetId": 2,
+      "fields": ["tenant_code", "customer_id"],
+      "keyRole": "REFERENCE",
+      "roleName": "customer"
+    }
+  ]
+}
+```
+
+| 字段 | 规则 |
+|---|---|
+| `mappings` | 创建时必填；每项表示一个数据集映射。更新时未提供该字段则保留现有本地映射。 |
+| `appId` | 可选；省略时使用目标应用 ID。 |
+| `datasetId` | 必填，物理数据集 ID。 |
+| `fields` | 必填、非空且有序。所有 mapping 的字段数必须相同，对应位置的字段类型由后端校验。 |
+| `keyRole` | 可选：`UNIQUE`、`REFERENCE` 或 `null`。 |
+| `roleName` | 可选；为 1–64 个 UTF-16 单元的 Unicode 字母、数字或下划线。不能含空白、标点、括号、控制字符或 emoji。 |
+
+映射的数组顺序会保存为连续 `sortOrder`。自动建模在没有显式角色时先按字段识别；字段不能唯一识别时，使用公共维度中最先出现的可用映射。因此，期望作为默认角色的映射应排在前面。同一公共维度内不能重复同一 `datasetId` 与 `roleName` 的组合。
+
+`--field <dataset_id>:<field_name>` 仍兼容旧的单字段、无角色映射，但不能和 rich `--file` / `--value` 输入混用。若现有维度具有复合字段、`keyRole` 或 `roleName`，CLI 会拒绝用 `--field` 替换，避免静默丢失信息；改用完整 `mappings` payload。
+
+只更新描述时，CLI 先读取当前维度，保留本地 mappings 的字段顺序、`keyRole` 和 `roleName`，并从写请求剔除 `inherited=true` 的映射。若当前维度没有本地 mapping，更新会被拒绝且不会发送 PUT。schema、字段类型、权限和连接性由后端校验；连接性错误（包括 `10390` / `10391`）按既有 API 错误面返回，CLI 不推导 join 或连接关系。
 
 ## `app connection-replace`
 

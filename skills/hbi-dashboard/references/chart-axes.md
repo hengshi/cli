@@ -9,6 +9,8 @@
 ## 核心结论
 
 - `axes[].name` 应该写前端真实的 `axisName` 值，不要写成自由语义标签
+- `axes[].label` 是轴的自定义显示名称。CLI 创作需要区分角色业务含义时，显式填写 `axes[].label`，例如“创建人计数”“更新人计数”；`axes[].name` 仍保留真实轴位。
+- `--title` 设置图表元素名称；画布使用自动标题时仍会根据轴名称生成标题，不能用 `--title` 代替轴的 `label`。
 - `kind` 的安全默认值通常是 `formula`，但像 `Boxplot` 的主度量轴这类聚合函数位要显式写成 `kind: function`
 - `op` 是 HE 表达式，常见写法是 `"{<field>}"` 或 `sum({<metric_field>})`
 - 如果想继承数据集字段上的展示格式，只有 `kind: field` 的轴适合配 `usingDatasetFormatter`

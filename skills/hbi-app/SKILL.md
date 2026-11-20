@@ -9,9 +9,18 @@ metadata:
 
 # HBI App
 
+> 路由：问数/取数/出图（含仪表盘内提问）先读 `hbi-chatbi`；authoring session 中的删除、授权、调度、执行类变更先读 `hbi-data-agent-authoring`，本技能只负责读取与可恢复内容。
+
 > 前置：先读 `hbi-core`，再执行本技能。
 >
 > 需要写 `connection-replace`、`portal apply`、`locale update`、`rule create/update`、`subscribe create/update` 的 `--file/--value` 载荷时，继续读 `references/payload-contracts.md`。
+
+在 `data-agent-session-v1` authoring session 中，应用、数据包关系、参数、
+维度、门户和可恢复内容可按当前用户权限执行。权限/授权与行/列权限规则走
+operation proposal（`app.authorize`、`app.rule.create` /
+`app.rule.update` / `app.rule.delete`）；所有权转移、分享、发布、凭据替换、
+永久清理以及异步刷新/调度仍需要服务端 confirmation receipt，当前 route
+admission 会拒绝，不能用相邻命令绕过。
 
 ## 应用领域的中文概念
 
@@ -124,8 +133,15 @@ hbi app create "销售分析" \
 ```bash
 hbi app create "销售数据准备" \
   --app-type data-app \
-  --area data-mart
+  --area data-mart \
+  --modeling-type auto
 ```
+
+Sense 7.0 的数据包可在创建时通过 `--modeling-type manual|auto` 选择建模方式；省略时仍使用 `MANUAL`。该参数只适用于 `data-app`，在其它应用类型上会在发请求前失败。`app show` / `app list` 以顶层 `modelingType` 返回有效值；旧响应中缺失或为 `null` 时按 `MANUAL` 处理。
+
+建模方式创建后不可通过 `app update` 修改。`AUTO` 数据包可以作为 `data-use` 数据源，但不能作为 `data-extend` 继承源。
+
+创建图表和指标时，自动建模（`AUTO`）数据包可引用包内任意数据集；手工建模（`MANUAL`）数据包只能引用已有数据模型的主表和从表。AUTO 的跨数据集关联仍由服务端根据公共维度校验和推导。
 
 ### 3. 更新、复制、删除、导入导出
 
@@ -302,6 +318,7 @@ hbi app relation --app <source_data_app_id> review --target-app <target_app_id> 
 - `review update` 当前只覆盖后端稳定可写字段：`status`（`pending|approved`）与 `keepDatasetAcl`。
 - `keepDatasetAcl` 可以理解成：源数据包在允许继承时，是否继续保留源侧数据集 ACL 的约束。
 - 如果当前应用是普通 analytic/query/report app，就走目标应用视角的 `list/add/delete/inheritance`；如果当前应用是 data-mart 下的数据包，就走源数据包视角的 `extend-approval/review`。
+- `AUTO` 数据包只能用于 `data-use`，不能作为 `data-extend` 源。不要用 `app relation` 去为 AUTO 模式设计或补写 join；关联语义和可用性由服务端负责。
 
 ## 应用权限与发布
 
@@ -418,7 +435,9 @@ hbi app refresh-schedule --help
 | `app subscribe` | 订阅 ID | `show/update/delete` 常走 ID |
 
 - 这些子命令大多都需要先给 `--app <app_id>`
-- `app dimension create/update` 常见字段写法是 `--field <dataset_id>:<field_name>`
+- 数据集角色和 HQL 角色语法 `{{dataset_id}}[role].{field}` 仅在 `modelingType=AUTO` 的数据包中有意义；手工建模（`MANUAL`）及其他场景不适用。
+- `app dimension create/update` 的 `--field <dataset_id>:<field_name>` 是单字段、无角色的兼容输入。需要复合字段、键角色或角色名时，使用 `--file` / `--value` 传入包含 `mappings` 数组的对象；见 `references/payload-contracts.md`。
+- `app dimension update` 只改描述时会保留本地映射，并排除只读继承映射。没有本地映射的纯继承维度不能写回；不要用旧 `--field` 覆盖已有的复合、键角色或角色映射。
 - `app rule create/update` 的快捷 flags 主要覆盖 `name/type/users/organizations/orgs`
 - 真正的行级/列级过滤体要优先走 `--file` / `--value`，写稳定持久化字段 `dataFilters` 与 `options.filterCategory`
 - 不要把前端编辑态的 `rootCondition` 当成稳定写回合同；真正保存的是 `dataFilters`

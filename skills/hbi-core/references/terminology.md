@@ -37,10 +37,9 @@ Canonical resource, scene, permission, and area terminology for core skill usage
 | 中文 | English | CLI | Key aliases | Status | Notes |
 | --- | --- | --- | --- | --- | --- |
 | 数据集 | Dataset | dataset | en: Datasets<br>internal: Dataset | verified | List surfaces also use Datasets. |
-| 知识管理 | Knowledge Management | knowledge | zh: 数据集知识管理<br>en: Dataset Knowledge Management<br>internal: chatDesc, chatWeight, chatExample | verified | Use 知识管理 / Knowledge Management as the product-facing entrypoint name; keep the raw `chat*` field names as internal aliases instead of canonical terminology. |
+| 知识管理 | Knowledge Management | knowledge | zh: 数据集知识管理<br>en: Dataset Knowledge Management<br>internal: chatDesc, chatWeight | verified | Use 知识管理 / Knowledge Management as the product-facing entrypoint name; keep the raw `chat*` field names as internal aliases instead of canonical terminology. |
 | 数据集描述 | Dataset Description | description | zh: 描述<br>en: Description<br>internal: chatDesc | verified | This is the dataset-level description field used by the AI Copilot relevance search flow inside Knowledge Management. |
 | 知识权重 | Knowledge Weight | weight | zh: 权重, 数据集权重<br>en: Weight, dataset weight<br>internal: chatWeight | verified | Normalize the canonical term to 知识权重 / Knowledge Weight because the raw frontend label 权重 / Weight is ambiguous once it leaves the Knowledge Management popover. |
-| 学习结果 | Learning Results | example | zh: 智能学习结果, 查看学习结果, 智能学习, 智能数据学习<br>en: AI Learning Results, view learning results, ai learning, ai data learning<br>internal: chatExample, chat-example, ai-create-example, AI_CREATE_EXAMPLE | partial | The current frontend exposes this slice through mixed action/result labels: the trigger button says 智能学习 / AI Learning, the surrounding section title says 智能数据学习 / AI Data Learning, and the editor action says 查看学习结果 / View Learning Results.<br>Keep the stored `chatExample` value as an internal alias rather than the canonical user-facing term. |
 
 ## resource.data-model (1)
 
@@ -131,4 +130,3 @@ Canonical resource, scene, permission, and area terminology for core skill usage
 | 平台空间 | Platform Space | platform-space | en: Vendor Space<br>internal: TENANT_SYSTEM_PORTAL | verified | CLI area `tenant-system-portal` is the platform space.<br>Vendor Space is an English UI variant, not a separate area. |
 | 我的空间 | My Space | app-mart | zh: 应用集市<br>en: App Mart<br>internal: APP_MART | verified | Flat app-mart style space.<br>Keep this distinct from `personal-area`, which the CLI treats as the personal creation area. |
 | 公共空间 | Public Space | system-portal | zh: 衡石大厅<br>en: Hengshi Hall<br>internal: SYSTEM_PORTAL | verified | Publish-space area routed from `Area.SYSTEM_PORTAL`.<br>Keep this distinct from `public-area`, even though some management screens reuse Public Space wording for `PUBLIC_AREA`. |
-

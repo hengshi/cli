@@ -18,6 +18,7 @@ The common HE node fields include:
 | `op` | Operator / function name / field name / literal payload, depending on `kind` |
 | `args` | Function args or nested expression list |
 | `dataset` | Dataset binding for cross-dataset field references |
+| `roleName` | Optional role binding for a role-qualified cross-dataset field |
 | `type` | Output type |
 | `value` | Constant / evaluated value |
 | `window` | `OVER (...)` definition |
@@ -36,7 +37,9 @@ Important note from backend: some HE fields are **internal-only** and not meant 
 ```text
 {amount}
 {{2}}.{amount}
+{{2}}[buyer].{amount}
 {{{17}}}.{{2}}.{amount}
+{{{17}}}.{{2}}[buyer].{amount}
 {%start_date}
 {$region}
 ```
@@ -45,10 +48,25 @@ Important note from backend: some HE fields are **internal-only** and not meant 
 | --- | --- |
 | `{field}` | Current dataset field |
 | `{{datasetId}}.{field}` | Cross-dataset field |
+| `{{datasetId}}[role].{field}` | Cross-dataset field in an explicit dataset role |
 | `{{{appId}}}.{{datasetId}}.{field}` | Cross-app field |
+| `{{{appId}}}.{{datasetId}}[role].{field}` | Cross-app field in an explicit dataset role |
 | `{%param}` | Parameter reference |
 | `{$attr}` | Attribute reference |
 | `{{datasetId}}` | Dataset reference node |
+
+### Role-qualified field references (Sense 7.0)
+
+**Role syntax is supported only in data packages with `modelingType=AUTO`.** Roles have no meaning in manual modeling (`MANUAL`) or other contexts; do not rely on them to distinguish relationships.
+
+The role suffix is optional and belongs between the dataset reference and `.{field}`:
+
+```text
+{{2}}[buyer].{amount}
+{{2}}[receiver].{amount}
+```
+
+`role` must contain 1–64 UTF-16 code units of Unicode letters, numbers, or underscores (`[\\p{L}\\p{N}_]+`). It is not trimmed. An invalid role-qualified token is a parser error and is never treated as a bare field. Two references to the same physical field with different roles remain distinct. The CLI does not infer a role or construct a join; the server validates whether an explicit role applies in context.
 
 ### Constants
 
@@ -62,6 +80,10 @@ false
 null
 [1, 2, 3]
 ```
+
+列表条件使用 HQL 数组作为右值，例如 `{region} in ['East', 'West']`；
+不要把 SQL 风格的 `IN ('East', 'West')` 直接写进 HQL。若具体数据模型方言
+不接受数组条件，使用等价的显式 `or` 条件。
 
 ### Function calls
 
@@ -175,6 +197,17 @@ row_number() over(
   "kind": "field",
   "op": "amount",
   "dataset": 2
+}
+```
+
+### Role-qualified cross-dataset field
+
+```json
+{
+  "kind": "field",
+  "op": "amount",
+  "dataset": 2,
+  "roleName": "buyer"
 }
 ```
 

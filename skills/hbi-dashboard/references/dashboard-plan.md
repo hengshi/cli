@@ -121,6 +121,8 @@ hbi dashboard create --dashboard-type report --data-app <data_app_id> --dataset 
 - `enableDisplayValue: true` 是否对应到了已配置 display value 的字段
 - Geo 图是否已经绑定到带地理角色的字段
 - family-specific runtime 和 `chartType` 是否匹配
+- `appParamBindings` 中启用的目标应用参数是否存在，以及类型、多值模式、时间粒度是否与输出点兼容
+- analytic plan 的 `controlledBy` 是否引用同一 plan 中显式声明的 `filterType: filterBtn` 元素；page/report 导出计划中的外部 UID 则按 shell-seeded filterBtn 的 read-side 引用校验并在 apply 时重映射
 
 如果 plan 仍然带着 `"{<field>}"` 这种占位符，或者写了不存在的 `c9` / `m1`，优先让 `validate` 报出来，再回头修 plan 或补前置能力；不要直接 `apply` 再去 GUI 里猜。
 
@@ -404,11 +406,63 @@ CLI 现在会按这张 family matrix 做基础校验：把 `tableRuntime` 塞到
 - `filterMethod`
 - `treeType`
 - `filterOptions`
+- `id`（仅在 `appParamBindings` / `controlledBy` 需要稳定引用时使用）
+- `appParamBindings`
+- `controlledBy`
 - `datasetId`
 - `dataAppId`
 - `layout`
 
 这只是当前 plan 的最小子集。前端运行时过滤器的真实结构远比这里丰富，涉及 `use`、`method`、`options`、`fieldSiblings`、`operator`、`dateRange` 等字段时，继续看 `filter-config.md`。
+
+过滤器把输出值写入应用参数，并由过滤按钮统一提交时，使用显式 filter id 建立关系：
+
+```yaml
+- id: apply_filters
+  type: filter
+  title: Apply filters
+  filterType: filterBtn
+  filterField: "{<filter_field>}"
+  datasetId: <datasetId>
+  dataAppId: <dataAppId>
+  layout:
+    x: 0
+    y: 0
+    w: 2
+    h: 1
+
+- id: region_filter
+  type: filter
+  title: Region
+  filterType: filter
+  filterField: "{<filter_field>}"
+  filterUse: radio
+  filterMethod: select
+  datasetId: <datasetId>
+  dataAppId: <dataAppId>
+  controlledBy: apply_filters
+  appParamBindings:
+    - pointCode: value
+      targetAppId: <targetAppId>
+      targetParamId: <targetParamId>
+      enabled: true
+  layout:
+    x: 2
+    y: 0
+    w: 4
+    h: 1
+```
+
+规则：
+
+- analytic dashboard 中手写 `controlledBy` 时，它引用 plan 中另一个过滤器元素的 `id`，目标必须是 `filterType: filterBtn`
+- 启用绑定至少要写 `pointCode`、`targetAppId`、`targetParamId`、`enabled: true`
+- 同一过滤器不能重复绑定同一个 `pointCode`
+- `targetType`、`targetMultiple`、`targetGranularity` 是可选 round-trip 元数据；新写 plan 时优先让后端根据目标参数重算，不要猜
+- `plan validate` 会检查启用项的目标应用参数是否存在，并核对源字段/输出点与目标参数的类型、多值模式、时间粒度；同一目标参数在一个 plan 内只能有一个输出来源
+- 启用绑定的 `filterField` 必须解析为一个真实 dataset field，不能是多字段表达式或 metric；禁用项可保留暂时无法解析的目标
+- 这个自由 authoring 面当前用于 analytic dashboard；page/report 的 outer `filterBtn` 仍由 shell seed/preserve
+- page/report 导出结果可能在普通过滤器上带有 shell 按钮的 runtime UID；这是可回放的 read-side 兼容形态，apply 会把它映射到目标 dashboard 自己的 shell seed，不要在 page/report plan 中手写 `filterBtn` 或 `appParamBindings`
 
 ### Button
 
@@ -741,7 +795,7 @@ container 内的嵌套控件目前重点支持：
 ## 更新路径的当前边界
 
 - `--update <dashboard_id>` 是“读取现有 dashboard，再重算目标状态”的入口，不是让你在 YAML 里手写控件定位补丁。
-- 当前计划文件里不要编造 `elements[].id: control1` 这种“稳定锚点”写法；当前 CLI 不会把它当成既有控件的官方定位字段。
+- `elements[].id` 不是所有控件的通用 update 定位机制。唯一已固化的例外是 filter：当 `controlledBy` 需要引用 `filterBtn`，或 `export -> validate -> reapply` 需要保持过滤器关系时，显式 filter `id` 会成为真实 filter UID。
 - 如果现有控件的字段、类型、标题还没确认，不要在更新示例里再臆造 `name`、`id`、业务字段；最多给 layout skeleton，并要求先回查现有 dashboard JSON。
 - 如果用户要更新现有两个控件的布局，先建议他确认当前 dashboard 的结构，再给目标状态 YAML。
 - 最安全的回查方式是：`hbi dashboard show --app <app_id> <dashboard_id> --output json`。
@@ -771,6 +825,6 @@ container 内的嵌套控件目前重点支持：
 - 不要混用 `snake_case` 和 `camelCase`
 - 不要假设 container tab 内支持所有顶层控件类型
 - 不要把模板示例里的 `datasetId`、`dataAppId`、字段名当成真实环境值直接发给用户
-- 不要编造 `elements[].id`、`control1` 之类的更新锚点
+- 不要把 `elements[].id` 当成所有控件的通用更新锚点；filter `id` 只在绑定/过滤按钮关系里按已固化规则使用
 - 不要把主题域业务指标当成普通 dataset field / formula 来写；主题域 chart 必须用 `measureSubjectId` + `kind: measure`
 - 不要在未确认 `--update` 目标 dashboard 的情况下直接覆盖生产布局

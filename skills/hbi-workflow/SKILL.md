@@ -152,12 +152,13 @@ hbi app list --area personal-area --root --app-type analytic-app --output json
 - 数据连接、数据集、指标：切到 `hbi-data`
 - 数据集成 pipeline、节点、pipeline 调度：切到 `hbi-pipeline`
 - 数据科学 notebook、段落执行、notebook 调度：切到 `hbi-notebook`
-- Data Agent / ChatBI / Copilot 配置、prompts、系统级向量库：切到 `hbi-data-agent`
+- Data Agent / ChatBI / Copilot 配置、模型 Profile、runtime skills：切到 `hbi-data-agent`
 - 已存在计划的 cron / 依赖 / 通知 / context / logs 治理：切到 `hbi-scheduler`
 - 联表设计、主表/维表判断、关系验证：切到 `hbi-data-modeling`
 - 应用生命周期：切到 `hbi-app`
 - 仪表盘与元素：切到 `hbi-dashboard`
 - 图表阈值预警、webhook/email 告警、data-alert validate/create/update：切到 `hbi-data-alert`
+- 数据填报模板、表单控件、填报数据读取：切到 `hbi-survey`
 - 权限：切到 `hbi-permission`
 - 用户、组织、租户：切到 `hbi-user-mgmt`
 - 复杂表达式：切到 `hql-expert`

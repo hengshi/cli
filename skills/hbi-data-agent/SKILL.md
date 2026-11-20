@@ -1,6 +1,6 @@
 ---
 name: hbi-data-agent
-description: "Data Agent / ChatBI 领域技能。凡是用户提到 data-agent、copilot、ChatBI、AI 配置、ChatBI prompt、basePrompt、向量库初始化、HQLExample 向量状态，或需要围绕 `hbi data-agent` / `hbi copilot` 管理 AI 后台配置时，都应该使用本技能。"
+description: "Data Agent 后台配置治理命令（不是问数，也不是变更执行）。用于主配置、Responses API 模型 Profile 与 runtime skill 管理。"
 metadata:
   requires:
     bins: ["hbi"]
@@ -9,150 +9,120 @@ metadata:
 
 # HBI Data Agent
 
-> 前置：先读 `hbi-core`。本技能负责的是 Data Agent / ChatBI 的**后台治理面**，不是替用户直接发起聊天问答，也不是通用 `preferences` 配置入口。
+> 前置：先读 `hbi-core`。本技能负责 Data Agent / ChatBI 的后台治理，不负责直接发起聊天问答，也不是通用 `preferences` 配置入口。
 >
-> 需要写 `data-agent config update/verify` 的 `--file/--value` 载荷时，继续读 `references/config-payloads.md`。
+> 旧的 `data-agent prompt` 和系统级 `data-agent vector` 命令已退役，不要再使用或推荐它们。
 
 ## 资源边界
 
 - `data-agent` 是独立顶层命令，另有 `copilot` alias。
-- 当前稳定命令面只覆盖三类后台治理动作：
-  - `config`：`/configurations/chat` 主配置的读取、校验、更新
-  - `prompt`：`/prompts` 与 `/prompts/{name}` 的 prompt 模板管理
-  - `vector`：`/configurations/chat/init-vector` 的系统级向量库初始化与状态查询
-- 这不是“发起一次 ChatBI 问答”的命令面；不要臆造 `ask` / `chat` / `query` 子命令。
-- 这也不是资源级向量化入口。资源级 AI / 向量化现在有第一批稳定 CLI 命令，但它们**不在** `data-agent` 子树下，而是分散在 `dataset` / `app` / `subject` / `scheduler`。
-
-## 当前实现的关键限制
-
-1. `config update` / `config verify` 接收的是 **JSON/YAML 对象载荷**。
-   输入方式是二选一：
-   - `--file <json-or-yaml>`
-   - `--value '<json-or-yaml-string>'`
-   `--dry-run` 时要能分清请求面：
-   - `config verify --dry-run` → `POST /configurations/chat/verify`
-   - `config update --dry-run` → `PUT /configurations/chat`
-
-2. `config` / `prompt` / `vector` 在**不带子命令**时会回到当前最常用的读操作：
-   - `data-agent config` → `get`
-   - `data-agent prompt` → `list`
-   - `data-agent vector` → `status`
-
-3. `prompt update <NAME>` 只更新该 prompt 的 `basePrompt` 文本。
-   它不是任意 JSON patch 接口，也不是改 model / metadata 的通用入口。
-   `prompt get` / `prompt update` 的 prompt 名都是**位置参数 NAME**，不是 `--name` flag。
-   `--dry-run` 时会显示 `PUT /prompts/<NAME>`，请求体也会被包成 `{"basePrompt":"..."}` 这种 JSON 对象，而不是直接把纯文本裸发出去。
-
-4. `prompt update` 的内容输入也是二选一，但这里读的是**纯文本**：
-   - `--file <text-file>`
-   - `--value '<prompt text>'`
-
-5. `vector status --type` 当前只显式支持一个稳定值：`hql-example`。
-   这是 CLI 枚举值；不要把后端查询参数里的 `HQLExample` 大小写形式直接拿来当 CLI 输入，也不要编造 `dataset`、`subject`、`metric` 之类的 type。
-   但如果你跑 `--dry-run`，最终请求行会显示 API 侧 query 值 `type=HQLExample`；CLI 输入和线上的 query 字符串不是同一层字面量。
-
-6. 资源级 AI / 向量化现在已有第一批稳定 CLI 入口，但边界要分清：
-   - `hbi dataset knowledge --app <app_id> --dataset <dataset_id> show|update`
-   - `hbi dataset example --app <app_id> --dataset <dataset_id> create|show|update`
-   - `hbi app vectorize-datasets <app_id>`
-   - `hbi subject tokenize <subject_id>`
-   - 进度观察统一回到 `hbi scheduler list --entity-group ...`
-     - `ai-create-example`
-     - `ai-rag-embedding`
-     - `ai-rag-measure-subject-tokenize`
-   这些都不是 `hbi data-agent` 子命令；如果用户问的是资源对象上的知识管理 / 学习 / tokenize，应该切到对应资源域，而不是继续留在本技能里发明 `data-agent dataset-*`。
-
-7. `vector init` / `vector status` 都没有 `--file` / `--value` 这类载荷输入，`vector init` 也没有 `--type` 这种范围收缩参数。
-   这里是固定的系统级治理动作，不是任意 payload authoring 面。
+- 当前公开命令面覆盖四类操作：
+  - `config`：`/configurations/chat` 主配置的读取和更新
+  - `profile`：`/configurations/chat/model-profiles` Responses API 模型配置管理
+  - `skills`：`/configurations/chat/runtime-skills` runtime skill 上传、启停和删除
+  - `operation`：server-owned authoring operation proposal/receipt 的 typed 读取与提案
+- `runtime-skills sync` 是隐藏的 Agent job provisioning 命令，不是普通用户的管理入口。
+- 资源级数据知识、字段值索引和主题域 context/query 仍属于对应资源命令，不要包装成 `data-agent` 子命令。
 
 ## 常用命令入口
 
-`hbi data-agent --help`：
+```bash
+hbi data-agent config --help
+hbi data-agent profile --help
+hbi data-agent skills --help
+hbi data-agent operation --help
+```
 
-- `config`
-- `prompt`
-- `vector`
+## 主配置
 
-## 常见操作
-
-### 主配置：先 `get`，再 `verify`，最后 `update`
+`config` 接收 JSON/YAML 对象载荷，直接对应 `/configurations/chat`；它不再承载模型地址、模型名、API key 或推理参数。
 
 ```bash
 hbi data-agent config get --output json
-hbi data-agent config verify --file chat-config.yaml --dry-run
 hbi data-agent config update --file chat-config.yaml --dry-run
-hbi data-agent config update --value '{"enabled":true}' --dry-run
+hbi data-agent config update --file chat-config.yaml
 ```
 
-规则：
+最稳的 workflow 是 `get -> 编辑 -> update --dry-run -> update`。不要给 payload 额外包 `config:` wrapper，也不要传标量、数组或 prompt 文本。
 
-- `config get` 读的是当前 Data Agent / ChatBI 主配置，不要先跳到 `preferences get-config/set-config` 猜裸 key。
-- `verify` 与 `update` 都要求对象载荷；不要传单个字符串、数字或 prompt 文本。
-- 推荐顺序是：先 `get` 看现状，再 `verify` 校验，再 `update` 正式变更。
-- `--dry-run` 会直接展示后端请求形态，适合先确认要发的是 `POST /configurations/chat/verify` 还是 `PUT /configurations/chat`。
+## Responses API 模型 Profile
 
-### Prompt：先 `list/get` 定位，再 `update` basePrompt
+Profile 是当前认证范围内的模型配置。创建和编辑只做本地校验与持久化；模型连通性测试使用 `verify`，不会创建 sandbox。
 
 ```bash
-hbi data-agent prompt list --output json
-hbi data-agent prompt get UserSystem --output yaml
-hbi data-agent prompt update DatasetSelector --file dataset-selector.txt --dry-run
-hbi data-agent prompt update HQLExamples --value "Use only approved HQL examples."
+hbi data-agent profile list --output json
+hbi data-agent profile create --file profile.json --dry-run
+hbi data-agent profile update <profile-id> --file profile.json --dry-run
+hbi data-agent profile headers set <profile-id> --name X-Caller --value "$CALLER_TOKEN"
+hbi data-agent profile headers remove <profile-id> --name X-Caller
+hbi data-agent profile headers clear <profile-id>
+hbi data-agent profile verify --file profile.json
+hbi data-agent profile activate <profile-id>
+hbi data-agent profile deactivate <profile-id>
+hbi data-agent profile delete <profile-id>
 ```
 
-规则：
+`profile.json` 是一个对象，字段按当前后端契约填写，例如 `name`、`responsesBaseUrl`、`model`、`apiKey`、`authHeader`、`authHeaderValuePrefix`、`reasoningEffort` 和 `timeoutSeconds`。编辑已保存 Profile 时，服务端返回的 `apiKey: "******"` 可以原样回传以保留原 secret。
 
-- 位置参数 `NAME` 是 prompt 名称，例如 `UserSystem`、`HQLExamples`、`DatasetSelector`。
-- `prompt update <NAME>` 更新的是该 prompt 的 `basePrompt` 文本，不要把它当成整个 prompt 对象的 JSON patch。
-- `prompt get` / `prompt update` 都用位置参数 `NAME`，不要编造 `--name UserSystem`。
-- `--file` / `--value` 在这里传的是**纯文本 prompt 内容**，不是 `{"basePrompt":"..."}` 这种 JSON 包装对象。
-- 但 `prompt update --dry-run` 的请求预览里，CLI 仍会把正文包装成 `{"basePrompt":"..."}` 发往 `PUT /prompts/<NAME>`；不要把“输入是纯文本”误读成“线上请求体也是纯文本”。
-- 如果用户要写 prompt 里的 HQL 示例内容，prompt 的更新动作留在本技能；HQL 语义本身再参考 `hql-expert`。
+`profile headers` 是对已保存 Profile 的增量操作。CLI 会先读取目标 Profile，再保留其他字段和密钥，只更新 `extraHeaders`；适合为沙箱内的 Responses 代理补充固定认证头。`set` 会按名称（不区分大小写）替换已有值，`remove` 和 `clear` 不会打印被删除的 secret。固定值建议通过环境变量传给 `--value`，不要直接写入 shell history。
 
-### 向量库：系统级 `init/status`，不是资源级 vectorization
+## Runtime skills
+
+Runtime skill 是平台管理员上传的不可变、版本化 ZIP。每个归档必须包含 `<id>/SKILL.md`；内容变化应使用新版本号。启停和切换只影响之后创建的 job，不能修改已经创建的 job 快照。
 
 ```bash
-hbi data-agent vector init --dry-run
-hbi data-agent vector status --output json
-hbi data-agent vector status --type hql-example --output json
+hbi data-agent skills list --output json
+hbi data-agent skills upload \
+  --id retail-analysis --version 1.0.0 --file retail-analysis.zip
+hbi data-agent skills activate retail-analysis 1.0.0
+hbi data-agent skills deactivate retail-analysis
+hbi data-agent skills delete retail-analysis 1.0.0
 ```
 
-规则：
+`skills upload` 使用 multipart 请求；`--file` 指向 ZIP，而不是 `SKILL.md` 裸文本。平台 API 会校验归档路径、大小、条目数和不可变版本约束。
 
-- `vector init` 触发的是**系统级**向量库初始化，不是某个 app、dataset、subject 或 metric 的局部向量化。
-- `vector status --type` 当前只支持 `hql-example`；如果你看到后端查询参数形态 `type=HQLExample`，那是 API 侧字符串，不是 CLI flag 值。
-- `vector status --type hql-example --dry-run` 时，第一行会显示 `GET /configurations/chat/init-vector/status?type=HQLExample`；要同时记住 CLI 输入值和 API query 值。
-- 如果用户只想看当前状态，`hbi data-agent vector` 不带子命令时默认就是 `status`。
-- `vector init` / `vector status` 都不是 payload authoring 命令面；不要编造 `--file`、`--value`，也不要给 `vector init` 强加 `--type`。
-- 如果问题已经变成“某个 dataset 的知识管理 / 学习结果怎么改”或“某个 app/subject 的向量化怎么触发”，就不要继续停在 `data-agent`，而要切到对应资源命令面。
+## Operation
 
-## 推荐工作流
+Operation 只负责提交和读取需要用户确认的外部效果提案。服务端只接受 native request：
+CLI 会把下面这些 kind 对应的资源 payload 组合成 `{method, path, query, body}`，
+调用方不需要（也不应该）自己写 request JSON。
 
-1. 先 `data-agent config get` 看当前 ChatBI 配置。
-2. 用 `config verify --file/--value` 校验候选配置。
-3. 再 `config update --file/--value` 正式更新。
-4. 用 `prompt list` / `prompt get` 定位要改的 prompt。
-5. 用 `prompt update <NAME> --file/--value` 更新 `basePrompt`。
-6. 需要系统级向量库准备时，执行 `vector init`，再轮询 `vector status`。
+| kind | payload |
+|---|---|
+| `scheduler.create` | `entityGroup` / `entityKey` / `execDetail` / `planItems` |
+| `dataset.field.delete` | `{appId, datasetId, fieldName}` |
+| `app.authorize` / `folder.authorize` / `connection.authorize` | `{targetId, grant:[{subjectType,subjectId,role}], revoke:[{subjectType,subjectId}]}`；CLI 先读取当前授权列表，再提交完整 AuthDto |
+
+支持的路由以服务端目录为准，用 `hbi data-agent operation kinds --output json` 查询；
+目录返回每个 kind 的 `summary` 和 `payload`（内容为 `METHOD template (path: ...; query: ...)`），
+不要在客户端枚举里假设某个 kind 一定存在。
+
+授权/回收已合并为每个 target type 一个 kind，服务端不做 delta 展开：CLI 会读取当前
+授权列表，在本地应用 `grant` / `revoke` 后把完整列表提交到 `POST /api/authorize`。
+
+确认不在 CLI 内完成；提案只创建 `proposed` 状态，用户必须在对话里的确认表单中确认。
+
+```bash
+hbi data-agent operation propose --kind scheduler.create \
+  --file plan.json --interaction-mode interactive --output json
+hbi data-agent operation propose --kind dataset.field.delete \
+  --value '{"appId":1,"datasetId":2,"fieldName":"c0"}' --output json
+hbi data-agent operation get <operation_id> --output json
+```
 
 ## 何时转到别的技能
 
-- 要处理认证、环境变量、全局输出、`preferences` / `config`：转 `hbi-core`
-- 要改数据集知识管理 / 学习结果：转 `hbi-data`
-- 要触发 app 级数据集向量化或看 scheduler AI 任务：转 `hbi-data` / `hbi-scheduler`
-- 要触发主题域 tokenize：转 `hbi-indicator-center`
-- 要改图表等被 ChatBI 消费的数据对象：转 `hbi-dashboard`
-- 要写 prompt 里的复杂 HQL / HE 示例：转 `hql-expert`
-- 要串联 dataset/app/subject/scheduler 的资源级 AI 链路：转 `hbi-workflow`
+- 认证、环境变量、全局输出：转 `hbi-core`
+- 数据集知识 / 学习结果：转 `hbi-data`
+- 应用级字段值搜索索引和 AI scheduler：转 `hbi-data` / `hbi-scheduler`
+- 主题域 context/query：转 `hbi-indicator-center`
+- 仪表盘或图表：转 `hbi-dashboard`
+- 跨多个资源域编排：转 `hbi-workflow`
 
 ## 禁止事项
 
-- 不要把 `data-agent` 说成 `preferences` 的一个分支。
-- 不要臆造 `data-agent ask` / `chat` / `query` 这类不存在的子命令。
-- 不要把 `prompt get` / `prompt update` 写成 `--name <prompt_name>`；当前是位置参数 `NAME`。
-- 不要把 `prompt update` 说成能更新任意 prompt 字段；当前只稳定支持 `basePrompt` 文本。
-- 不要把 `prompt update --value` 写成 JSON 对象；这里传的是原始文本。
-- 不要把 `config update` / `verify` 的载荷写成标量；它们要求对象。
-- 不要把 API 里的 `HQLExample` 大小写形式直接当成 CLI `--type` 值；CLI 这里写 `hql-example`。
-- 不要编造 `vector status --type dataset`、`subject`、`metric` 等不存在的 type。
-- 不要把 `dataset knowledge/example`、`app vectorize-datasets`、`subject tokenize` 重新包装成 `hbi data-agent` 子命令。
+- 不要恢复或推荐 `hbi data-agent prompt ...`。
+- 不要恢复或推荐 `hbi data-agent vector init/status`。
+- 不要把 `data-agent` 说成 `preferences` 的子命令。
+- 不要臆造 `data-agent ask`、`chat` 或 `query`。
+- 不要把 runtime skill 管理和隐藏的 `runtime-skills sync` 混为一谈。

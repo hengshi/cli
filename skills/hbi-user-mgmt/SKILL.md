@@ -1,6 +1,6 @@
 ---
 name: hbi-user-mgmt
-description: "用户与组织管理技能。凡是用户提到用户、用户组、组织、部门、租户、用户属性、平台管理、账号启停、密码重置、管理员重置、组织同步、租户引擎配置，或需要理解 `user`、`user-group`、`organization`、`org`、`tenant` 之间的边界时，都应该使用本技能。"
+description: "用户与组织管理技能。凡是用户提到用户、用户组、组织、部门、租户、用户属性、平台管理、账号启停、密码重置、管理员重置、组织同步、租户引擎配置、审计日志、系统操作记录、试用账号操作行为，或需要理解 `user`、`user-group`、`organization`、`org`、`tenant`、`audit` 之间的边界时，都应该使用本技能。"
 metadata:
   requires:
     bins: ["hbi"]
@@ -8,6 +8,8 @@ metadata:
 ---
 
 # HBI User Management
+
+> 路由：问数/取数/出图（含仪表盘内提问）先读 `hbi-chatbi`；authoring session 中的删除、授权、调度、执行类变更先读 `hbi-data-agent-authoring`，本技能只负责读取与可恢复内容。
 
 > 前置：先读 `hbi-core`。涉及权限分配时，同时参考 `hbi-permission`。
 
@@ -18,6 +20,7 @@ metadata:
 - `org`：组织/部门树
 - `user-attr`：用户属性
 - `tenant`：租户，平台级资源
+- `audit`：系统操作记录的只读查询；`logs download` 下载的是后端运行日志
 
 两个容易混淆的点：
 
@@ -41,6 +44,10 @@ metadata:
 - `disable`
 - `reset-password`
 - `roles`
+
+### 审计日志
+
+`hbi audit list --help`：按用户、对象类别/名称和时间范围分页查询。`--user`、`--email`、`--login-name` 三选一；邮箱/登录名必须区分大小写地精确匹配唯一用户。时间使用服务端时区的 `YYYY-MM-DD HH:mm:ss`，包含起止边界。默认返回 100 条，JSON/YAML 是记录数组；下一页的 `--offset` 增加本页实际记录数。
 
 ### 用户组
 
@@ -120,6 +127,15 @@ hbi user reset-password <user_id> --new-password "newsecret"
 - 账号状态优先用 `user enable` / `user disable`
 - 密码重置优先用 `user reset-password`
 - 当系统开启管理员二次校验时，`user reset-password` 需要补 `--current-password`
+
+### 试用账号的操作行为
+
+```bash
+hbi audit list --email trial@example.com --begin "2026-11-01 00:00:00" --end "2026-11-17 23:59:59" -o json
+hbi audit list --user 123 --category dashboard --query "销售" --offset 0 --limit 100 -o json
+```
+
+邮箱/登录名匹配失败时，先核对用户身份，不要删除用户条件后把全量日志当成该用户记录。无结果只说明当前权限、筛选范围和日志保留期内未查到记录，不能据此断言账号从未使用过系统。
 
 ### 用户组：可创建初始成员，更新成员会整体替换
 

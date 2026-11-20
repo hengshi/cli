@@ -48,6 +48,7 @@ metadata:
 - `measure`
 - `dashboard`
 - `data-alert`
+- `survey`
 - `data-agent`
 - `pipeline`
 - `notebook`
@@ -71,14 +72,20 @@ metadata:
 
 ## 认证与配置
 
-### `auth` 有两条命令面，不要混用
+### `auth` 的三类操作
 
-#### 1. CLI 自己的登录态
+#### 1. 登录、退出与切换账号
 
 - `login`
 - `logout`
 - `status`
 - `refresh`
+
+用户说“退出登录”，使用 `auth logout` 退出当前 hbi 登录。用户说“换账号 / 切换账号”，先明确目标 host 和新账号，再退出当前 hbi 登录并用新账号完成 `auth login`，最后用 `auth status` 核对。各步均显式传入同一个 `HBI_HOST`；不能只执行 logout 就报告已切换。
+
+使用 `--device-login` 时，确认浏览器批准页显示新账号；hbi 退出不会替用户退出浏览器。检查环境变量、工作目录 `.env` 和命令参数是否还注入旧账号的 token 或 client credentials，`auth logout` 不会修改这些外部输入。执行前遵守宿主的固定身份限制；不能因“换账号”请求绕过运行环境的账号绑定。
+
+日常换账号不使用 `auth server-logout`。如果用户只想临时以某个用户的权限执行命令，按下方“指定用户视角执行”使用 `--as-user`，它不会改变 hbi 保存的登录账号。
 
 #### 2. 系统认证方式管理
 
@@ -89,9 +96,24 @@ metadata:
 - `verify`
 - `generate`
 
-如果用户说的是“我怎么登录 CLI / token 怎么来”，走第 1 条。
+如果用户说的是“我怎么登录 CLI / 退出登录 / 换账号 / token 怎么来”，走第 1 条。
 
 如果用户说的是“系统支持哪些登录方式 / 切 LDAP / 改 OAuth2 / 校验 LDAP / 生成 JWT 参数认证材料”，走第 2 条。
+
+#### 3. 强制用户退出登录
+
+用户明确要让某个账号退出当前环境的全部登录时，使用 `auth server-logout`。这是管理员操作，会清理指定用户在目标 host 的**全部服务端登录会话**；与日常退出 hbi 或切换账号不同。
+
+```bash
+HBI_HOST=https://example.com hbi auth server-logout --as-user loginName:alice --dry-run
+HBI_HOST=https://example.com hbi auth server-logout --as-user loginName:alice --force
+```
+
+- 复用常规 host 和认证解析；也可用全局 `--api-url` 临时指定 host。
+- 必须显式指定 `--as-user` / `--sudo`；身份格式见下方“指定用户视角执行”。调用方需要有效 access token 和允许 sudo 的 OAuth client，目标用户无需先重新网页登录。
+- 先核对 dry-run 中的 host、用户和全会话范围，实际执行必须加 `--force`。这可能中断该用户的浏览器和并行任务；只在用户明确授权清理该 host/用户时执行，不作为登录失败或 `12037` 后的自动恢复。
+- 保留本地 CLI 凭据、默认 host 和其他 host 的认证状态；正常 token 续期仍沿用既有认证流程。它不提高或取消会话上限。
+- 认证、权限、目标用户或接口错误返回非零退出码。成功输出不包含服务端未提供的删除条数。
 
 ### 推荐认证方式
 
@@ -162,7 +184,7 @@ hbi app list --area personal-area --root --sudo email:demo@example.com
 hbi auth login --dry-run
 ```
 
-需要把凭据写入系统钥匙串时再加 `--interactive`。
+需要交互式输入并保存到 CLI 本地凭据存储时，再加 `--interactive`；不使用系统钥匙串。
 
 ### 执行与验证入口：wrapper-first
 
@@ -385,7 +407,7 @@ hbi config --edit
 ## 禁止事项
 
 - 不要跳过 `hbi <命令族> --help` 就臆测参数名。
-- 不要把 CLI 登录态管理（`login/logout/status`）和系统认证方式管理（`methods/active/config/verify/generate`）混成一套命令。
+- 不要混淆本地 CLI 登录态、系统认证方式管理与 `server-logout` 服务端会话清理。
 - 不要把 `measure` 和 `metric` 混成同一个概念。
 - 不要假设资源 ID 一定存在。
 - 不要在已有模块入口时，优先跳到 `preferences get-config/set-config` 猜裸 key。

@@ -9,6 +9,8 @@ metadata:
 
 # HBI Data
 
+> 路由：问数/取数/出图（含仪表盘内提问）先读 `hbi-chatbi`；authoring session 中的删除、授权、调度、执行类变更先读 `hbi-data-agent-authoring`，本技能只负责读取与可恢复内容。
+
 > 前置：先读 `hbi-core`。复杂 HE/HQL 表达式再转 `hql-expert`。
 >
 > 需要精确的资源名、产品术语、`metric` / `measure` 边界时，先读 `references/terminology.md`。
@@ -16,6 +18,12 @@ metadata:
 > 需要把 CLI dataset 入口和前端“数据集类型”中文名对齐时，继续读 `references/dataset-types.md`。
 >
 > 需要写 `dataset create-api/update/replace/export` 的 `--file/--value` 载荷，或给 `metric` / `measure` 写 `--display-format` JSON 时，继续读 `references/payload-contracts.md`。
+
+在 `data-agent-session-v1` authoring session 中，数据连接只允许发现和
+读取；凭据、授权和连接替换写入需要 confirmation receipt。数据集、字段、
+关系、metric/measure 与可恢复知识内容可按当前用户权限编辑；刷新、AI
+example 生成（无独立 CLI 子命令）和任何调度写操作是异步或外部效果，当前会被
+route admission 拒绝。
 
 ## 数据领域术语
 
@@ -52,7 +60,6 @@ metadata:
 - `preview`
 - `export`
 - `knowledge`
-- `example`
 - `create`
 - `update`
 - `replace`
@@ -103,6 +110,8 @@ metadata:
 - `join-delete`
 
 ### 指标与业务指标
+
+Sense 7.0 中，自动建模（`AUTO`）数据包的指标可引用包内任意数据集；手工建模（`MANUAL`）数据包的指标只能引用已有数据模型的主表和从表。AUTO 的跨数据集关联仍由服务端根据公共维度校验和推导；建模方式和字段引用规则见 `hbi-data-modeling`。
 
 `hbi metric --help`：
 
@@ -295,23 +304,17 @@ hbi dataset update --app <app_id> <dataset_id> --file dataset-options-patch.yaml
 - `dataset update --file/--value` 也接受 `dataset show --output json` 这类带顶层 `options` 的对象；CLI 会自动抽出 `options`。
 - 但对派生数据集，不要直接把 `dataset show` 的整份 runtime `options` 原样回灌；应只保留上面列出的稳定 authoring 子集。
 
-#### 数据集知识管理 / 智能学习
+#### 数据集知识管理
 
 ```bash
 hbi dataset knowledge --app <app_id> --dataset <dataset_id> show --output json
 hbi dataset knowledge --app <app_id> --dataset <dataset_id> update --description "..." --weight 8
-hbi dataset example --app <app_id> --dataset <dataset_id> create
-hbi dataset example --app <app_id> --dataset <dataset_id> show --output json
-hbi dataset example --app <app_id> --dataset <dataset_id> update --value "..."
-hbi scheduler list --entity-group ai-create-example --output json
 ```
 
 规则：
 
 - `knowledge` 对应知识管理里的“数据集描述 / 知识权重”；内部字段分别是 `chatDesc` / `chatWeight`。
-- `example create` 触发的是 dataset 级 `AI_CREATE_EXAMPLE` scheduler job，不是同步生成；后端会基于系统抽象模板以及数据集字段/字段值/指标生成 dataset-specific HQL examples，任务查看回到 `scheduler`.
-- `example show/update` 对应的是“学习结果”读写；内部字段是 `chatExample`。这不是 `UserSystem` 那类 system prompt 字段；后端 `FunctionsSelectorLLM` 会优先使用这份 dataset-specific example pool，再回退到全局 `HQLExamples` / `HQLCoreExamples`。
-- 如果用户问的是系统级 ChatBI 配置 / prompt / 向量库初始化，转 `hbi-data-agent`；不要把 dataset knowledge/example 和 `data-agent` 后台治理面混成一层。
+- 如果用户问的是系统级 ChatBI 配置 / prompt / 向量库初始化，转 `hbi-data-agent`；不要把 dataset knowledge 和 `data-agent` 后台治理面混成一层。
 
 #### `create-reference` / `import` / `create-fusion` 的边界
 

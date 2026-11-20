@@ -9,9 +9,17 @@ metadata:
 
 # HBI Data Alert
 
+> 路由：问数/取数/出图（含仪表盘内提问）先读 `hbi-chatbi`；authoring session 中的删除、授权、调度、执行类变更先读 `hbi-data-agent-authoring`，本技能只负责读取与可恢复内容。
+
 > 前置：先读 `hbi-core`。需要定位 app / dashboard / chart 或图表 metric uid 时，可同时参考 `hbi-dashboard` / `hbi-data`。如果问题已经变成 schedule context / logs 排障，再切 `hbi-scheduler`。
 
 ## 资源边界
+
+在 `data-agent-session-v1` authoring session 中，预警可以读取、预览和
+validate。创建/修改/删除预警走 operation proposal：`data-alert.create`、
+`data-alert.update`、`data-alert.delete`，用户在对话里确认后执行；不要直接
+调用低层 alert API。enable/disable 与 notification test 仍需要服务端
+confirmation receipt，当前 route admission 会拒绝。
 
 - `data-alert` 是**应用内图表预警资源**，绑定 `app + dashboard + chart`，不是 dashboard 布局配置，也不是通用 `scheduler` 创建入口。
 - `create` 与 `validate` 的参数骨架一致：都要求 `APP_ID`、`DASHBOARD_ID`、`CHART_ID`、`TITLE`、`--metric-uid`。

@@ -9,6 +9,8 @@ metadata:
 
 # HBI Permission
 
+> 路由：问数/取数/出图（含仪表盘内提问）先读 `hbi-chatbi`；authoring session 中的删除、授权、调度、执行类变更先读 `hbi-data-agent-authoring`，本技能只负责读取与可恢复内容。
+
 > 前置：先读 `hbi-core`。如果权限动作只发生在应用级，也要同时参考 `hbi-app`。
 
 ## 权限相关概念
@@ -18,6 +20,16 @@ metadata:
 - `app grant` / `app revoke`：应用级快捷授权入口
 
 本技能的核心价值，是避免把“查权限”和“改权限”混成一套命令。
+
+## authoring session 边界
+
+在 `data-agent-session-v1` authoring session 中，授权/回收授权走 operation
+proposal：`app.authorize`、`folder.authorize`、`connection.authorize`。payload
+用 `targetId` + `grant` / `revoke` 描述要增加或移除的 subject；CLI 会先读取当前
+授权列表，再把完整 `AuthDto` 提交到 `POST /api/authorize`。`subjectType` 取
+`user` / `group`（用户组）/ `organization`（组织架构）/ `tenant`，`role` 取
+`view` / `edit` / `admin` / `tenant`。不要直接调用 `authorize grant/revoke` 或
+`app grant/revoke`；`allowUsers` 类设置写入仍会被拒绝。
 
 ## 常用命令入口
 
@@ -138,25 +150,25 @@ hbi authorize get app <target_id> --action read|write
 
 ```bash
 hbi authorize grant app <target_id> --user 123:viewer
-hbi authorize grant folder <target_id> --organization 9:editor --org 456:viewer
+hbi authorize grant folder <target_id> --organization 9:editor --user-group 456:viewer
 hbi authorize grant connection <target_id> --user 123:viewer,456:editor --tenant 1:tenant
 ```
 
 规则：
 
 - `--user` 格式是 `USER_ID:ROLE`
-- `--organization` 格式是 `ORG_ID:ROLE`，代表**组织**
-- `--org` 格式是 `ORG_ID:ROLE`，代表**用户组**
+- `--organization` 格式是 `ORG_ID:ROLE`，代表**组织架构**，和用户组不是同一个主体
+- `--user-group` 格式是 `GROUP_ID:ROLE`，代表**用户组**（旧别名 `--org`）
 - `--tenant` 格式是 `TENANT_ID:ROLE`
 - 支持重复参数，也支持逗号分隔批量写法
-- 至少要给一类主体：`--user` / `--organization` / `--org` / `--tenant`
+- 至少要给一类主体：`--user` / `--organization` / `--user-group`（旧别名 `--org`）/ `--tenant`
 - 建议外部文案统一写 `api-set`；`api_set` / `api` 这类别名虽然能被归一化，但不要把别名当 canonical 输出
 
 ### 回收授权
 
 ```bash
 hbi authorize revoke app <target_id> --user 123,456
-hbi authorize revoke folder <target_id> --organization 9 --org 789
+hbi authorize revoke folder <target_id> --organization 9 --user-group 789
 hbi authorize revoke connection <target_id> --tenant 1
 ```
 
@@ -185,6 +197,6 @@ hbi authorize revoke connection <target_id> --tenant 1
 - 不要在同一段自动化里混写两种 area 风格；优先统一用小写连字符值。
 - 不要把 `app grant --permission` 写成 `viewer` / `editor` / `administrator`。
 - 不要把 `authorize get --action` 写成角色词；这里只认 `read` / `write` / `admin`。
-- 不要把 `--organization` 和 `--org` 当成同一种主体。
+- 不要把 `--organization`（组织架构）和 `--user-group`（用户组）当成同一种主体。
 - 不要写未校验的角色字符串。
 - 不要在不知道目标类型是 `app`、`folder`、`connection` 还是 `kanban` 的情况下直接授权。

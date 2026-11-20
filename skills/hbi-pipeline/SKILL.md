@@ -9,11 +9,18 @@ metadata:
 
 # HBI Pipeline
 
+> 路由：问数/取数/出图（含仪表盘内提问）先读 `hbi-chatbi`；authoring session 中的删除、授权、调度、执行类变更先读 `hbi-data-agent-authoring`，本技能只负责读取与可恢复内容。
+
 > 前置：先读 `hbi-core`。涉及连接、数据集来源选择时，同时参考 `hbi-data`。
 >
 > 如果任务已经变成跨数据层、应用层、权限层的整条交付链路，再切 `hbi-workflow`。
 
 ## 资源边界
+
+在 `data-agent-session-v1` authoring session 中，pipeline 定义与节点内容
+可按当前用户权限直接编辑；`schedule` 创建/修改/启停以及任何自主执行仍
+需要服务端 confirmation receipt，当前会被 route admission 拒绝。遇到
+`POLICY_DENIED`、401 或 403 时不要改用相邻 scheduler API 绕过。
 
 - `pipeline` 是**独立的数据集成资源**，不是某个 app 下的附属节点树。
 - `pipeline` 负责 source / transform / sink 图结构，不等于 `dataset` / `data-model`。
