@@ -5,6 +5,7 @@
 - 需要解释 `hbi dashboard show --output json` 的结构
 - 需要说明 `layouts`、`chartMap`、`filterMap`、`containerMap`、`tabMap` 的关系
 - 需要隐藏或显示图表标题，或排查标题字段回读与页面可见性不一致
+- 需要排查自定义图表悬停时的数据提示和容器提示
 - 需要判断 `dashboard plan` 的 YAML 子集和前端 runtime JSON 之间还差哪些字段
 
 ## 运行时对象地图
@@ -48,6 +49,23 @@
 使用 `element chart patch --help` 确认参数；批量 `--charts` 的路径用 `{chart}` 占位。每条命令仍只修改所指定的路径，不能把一次外层 patch 当成两个开关都已修改。先看 dry-run 的目标 ID / 路径 / 值，再执行写入。
 
 完成判定要覆盖全部目标 ID：回读每个图表的两个开关，并对照写前快照确认其余配置未改变；CLI 返回成功或图表仍存在都不能替代这些断言。页面效果还需刷新后的浏览器或等价渲染证据。只有配置回读时，明确说明“配置已确认，页面效果待验证”；用户反馈仍显示时继续查两个开关和渲染结果，不凭 API 回读归因为浏览器缓存。
+
+## 自定义图表悬停
+
+容器中的 `CustomJS` 若出现「请选择容器」，先在目标页面分别检查数据标记、图布留白及容器外的悬停行为。浏览器会沿用最近祖先元素的 HTML `title`。图表的 Tooltip 和页面中常显的数值标签各有自己的配置。
+
+对于使用 ECharts 的 `CustomJS`，按图形配置悬停触发和数据格式。若确认浏览器提示来自容器祖先，且当前版本提供图表 DOM 接口，可在图表自有宿主设置空 `title`。在确认 `getParentDOM` 返回当前图表宿主的运行时，可使用以下片段：
+
+```js
+const chart = params.getEchartsItem();
+const chartDom = chart.getDom();
+const chartHost = params.getParentDOM(chartDom) || chartDom;
+chartHost.setAttribute('title', '');
+```
+
+更新已有脚本时复用同一个图表实例，并将修改限制在图表自有 DOM。图表数据提示应显示正确的分类、金额或占比。将指针移出有效提示区域时，检查数据提示已收起，图布留白也未沿用容器提示。
+
+如果无法提供正常数据提示，且用户接受关闭，按确认的范围关闭图表 Tooltip，并单独检查浏览器继承提示。常显标签应继续可见。配置回读、截图和本地浏览器验证分别说明能够证明的范围，登录后的实际页面悬停需直接验证。
 
 ## Layout item
 
