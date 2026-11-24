@@ -30,7 +30,7 @@ metadata:
 | --- | --- | --- |
 | `singleLineText` | 单行文本 | `placeholder`、`maxLength` |
 | `multilineText` | 多行文本 | `placeholder`、`maxLength` |
-| `richText` | 富文本说明，不落库 | `content` |
+| `richText` | 富文本说明，不落库 | `content`（Slate 节点数组；字符串会被 CLI 自动包装成单段落） |
 | `numberInput` | 数字 | `placeholder`、`minValue`、`maxValue`、`onlyInteger` |
 | `dateInput` | 日期 | `enableTime`、`nowPlaceholder` |
 | `emailInput` | 邮箱 | `placeholder` |
@@ -48,6 +48,17 @@ metadata:
 - 单个选项值最长 1000 字符，序列化后的总长度最长 4000 字节（UTF-8）。
 - 批量导入和导出的多选列同样使用 JSON 数组，例如 `["研发","运维"]`。
 - 读取填报数据时，多选列返回的是 JSON 数组字符串；需要逐项分析时按 JSON 解析。
+
+富文本规则：
+
+- `options.content` 由设计页按 Slate 节点数组渲染，标准结构是：
+
+  ```json
+  [{ "type": "paragraph", "children": [{ "object": "text", "text": "第一部分：基本信息" }] }]
+  ```
+
+- 也可以直接传字符串，CLI 会在提交前自动包装成单个段落；空数组同样按空段落提交。
+- 节点数组会做最小结构校验：每个节点必须是对象，并含字符串 `text`（叶子）或 `children` 数组（元素），否则提交前报错。更深的嵌套结构由调用方保证。
 
 ## 常用命令入口
 
@@ -131,6 +142,8 @@ hbi survey data <id> --limit 20 --output json
 3. `hbi survey update <id> --file survey.json`。
 
 不要只传一个控件；如果要改控件，就把完整 `controls` 列表一起传。
+
+如果模板是升级前写入的 richText 纯字符串 `content`（设计页会打不开），把 `hbi survey show <id> --output json` 的结果原样存成文件再 `hbi survey update <id> --file survey.json`，CLI 会在提交前把它归一化成节点数组并修复该模板。
 
 ## 表单设置
 
