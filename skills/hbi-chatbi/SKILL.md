@@ -74,9 +74,20 @@ dataset 最终 query 必须带 `--evidence --output json`；subject query 本身
 只属于 data-model query 的编译调试路径，和 `--evidence`、`--validate`、`--capability` 互斥。
 agent 自己写业务结论，compose 只生成图表 payload 与 answerability 诊断。
 
-派生公式（`previous` / `previous_growth` / `previous_growth_rate` 或自定义计算）没有数据集字段/指标的 label 可回填，
-输出列必须用 `--expr-label UID=TEXT` 给出用户语言的可读名，名称包含基础指标和比较口径；规则与示例见
+派生/复合的自定义计算（`previous` / `previous_growth` / `previous_growth_rate`，以及下面的算术、条件、多参函数包装）
+回填不到有意义的字段名，输出列必须用 `--expr-label UID=TEXT` 给出用户语言的可读名，名称是业务口径
+（比较类还要包含比较口径，例如“销售额同比增长率”）；规则与示例见
 [period-comparison.md](references/period-comparison.md) 的“输出显示名”。
+
+**判定口径：`--expr-label` 标注的是 `--expr` 的 uid，或位置参数 HQL 的输出轴 `value`**
+（`hbi data-model query --app <app_id> --dataset <dataset_id> "SUM({a} * {b})" --expr-label value="<显示名>"`
+这类写法要传 `--expr-label value=...`）。
+只有两种表达式可以省略：一路收窄到单个字段、且路径上每个函数都只有一个参数
+（`sum({field})`、`count({field})`、`avg({price})`、`countd({user_id})`、`min/max({x})` 等单参聚合），
+或者直接引用 root `metrics` 指标。任何算术（`SUM({a} * {b})`）、字段间比值（`SUM({a}) / SUM({b})`）、
+条件与过滤、比较、以及多参函数包装（例如 `count(if({x} > 6000, 1, NULL))`、`round(sum({x}), 2)`）
+都回填不到字段名，必须带 `--expr-label`。
+漏传的后果是图例、表头、导出全部显示内部 uid（例如 `sales`、`revenue`），用户看到的不是业务名称。
 
 ### 指定图表类型
 
@@ -96,7 +107,8 @@ agent 自己写业务结论，compose 只生成图表 payload 与 answerability 
 
 ```bash
 hbi data-model query --app <app_id> --dataset <dataset_id> \
-  --expr revenue="SUM({amount})" --title "各区域销售收入" --evidence --output json \
+  --expr revenue="SUM({amount})" --expr-label revenue="销售收入" \
+  --title "各区域销售收入" --evidence --output json \
   | hbi chatbi compose --app <app_id> --dataset <dataset_id> \
       --select revenue --order revenue \
       --diagnostics --intent-value '{"requiredOutputs":["revenue"]}' \
